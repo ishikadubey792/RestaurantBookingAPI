@@ -1,0 +1,29 @@
+﻿
+# Build output
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Local configuration and secrets
+appsettings.Development.json
+appsettings.Local.json
+appsettings.json 
+secrets.json
+
+# Environment files
+.env
+.env.*
+
+# User-specific files
+*.userosscache
+*.sln.docstates
+
+# Logs and temporary files
+*.log
+TestResults/
