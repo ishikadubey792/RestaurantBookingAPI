@@ -13,12 +13,16 @@ namespace RestaurantBookingAPI.Controllers
         private readonly IUserService _userService;
         private readonly JwtService _jwtService;
 
+        private readonly IRestaurantOwnerRegistrationService _restaurantOwnerRegistrationService;
+
         public AuthController(
             IUserService userService,
-            JwtService jwtService)
+            JwtService jwtService,
+            IRestaurantOwnerRegistrationService restaurantOwnerRegistrationService)
         {
             _userService = userService;
             _jwtService = jwtService;
+            _restaurantOwnerRegistrationService = restaurantOwnerRegistrationService;
         }
 
         [HttpPost("register")]
@@ -48,6 +52,50 @@ namespace RestaurantBookingAPI.Controllers
                 (object)responseData
             );
         }
+
+
+        [HttpPost("register-restaurant-owner")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> RegisterRestaurantOwner(
+    [FromForm] RestaurantOwnerRegisterRequest request)
+        {
+            // 1. Register owner and restaurant
+            var result = await _restaurantOwnerRegistrationService.RegisterAsync(
+                request
+            );
+
+            // 2. Generate JWT token
+            var token = _jwtService.GenerateToken(result.User);
+
+            // 3. Prepare response
+            var responseData = new
+            {
+                id = result.User.Id,
+                name = result.User.Name,
+                email = result.User.Email,
+                role = result.User.Role,
+
+                restaurant = new
+                {
+                    id = result.Restaurant.Id,
+                    name = result.Restaurant.Name,
+                    city = result.Restaurant.City,
+                    coverImagePath = result.Restaurant.CoverImagePath
+                },
+
+                accessToken = token,
+                tokenType = "Bearer",
+                expiresIn = 1800
+            };
+
+            return ApiResponseHelper.Ok(
+                this,
+                "Restaurant owner registered successfully.",
+                (object)responseData
+            );
+        }
+
+
 
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)

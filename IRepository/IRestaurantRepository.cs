@@ -13,5 +13,12 @@ namespace RestaurantBookingAPI.IRepository
         Task<bool> UpdateAsync(Restaurant restaurant);
 
         Task<bool> DeleteAsync(int id);
+
+        Task<List<Restaurant>> GetByOwnerIdAsync(int ownerUserId);
+
+        Task<Restaurant?> GetByIdAndOwnerIdAsync(
+            int restaurantId,
+            int ownerUserId
+        );
     }
 }

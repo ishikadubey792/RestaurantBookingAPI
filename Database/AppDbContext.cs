@@ -28,6 +28,12 @@ namespace RestaurantBookingAPI.Data
 
         public DbSet<Payment> Payments { get; set; }
 
+        public DbSet<RestaurantImage> RestaurantImages { get; set; }
+
+        public DbSet<Cuisine> Cuisines { get; set; }
+
+        public DbSet<RestaurantCuisine> RestaurantCuisines { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Restaurant>()
@@ -102,6 +108,55 @@ namespace RestaurantBookingAPI.Data
 
             modelBuilder.Entity<Payment>()
                 .HasIndex(p => p.BookingId)
+                .IsUnique();
+
+
+            // Restaurant → Owner (User)
+            modelBuilder.Entity<Restaurant>()
+                .HasOne(r => r.Owner)
+                .WithMany()
+                .HasForeignKey(r => r.OwnerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+            // Restaurant → Restaurant Images
+            modelBuilder.Entity<RestaurantImage>()
+                .ToTable("RestaurantImage");
+
+            modelBuilder.Entity<RestaurantImage>()
+                .HasOne(i => i.Restaurant)
+                .WithMany(r => r.Images)
+                .HasForeignKey(i => i.RestaurantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+
+            // Cuisine
+            modelBuilder.Entity<Cuisine>()
+                .ToTable("Cuisine");
+
+            modelBuilder.Entity<Cuisine>()
+                .HasIndex(c => c.Name)
+                .IsUnique();
+
+
+            // Restaurant → Cuisines mapping
+            modelBuilder.Entity<RestaurantCuisine>()
+                .ToTable("RestaurantCuisine");
+
+            modelBuilder.Entity<RestaurantCuisine>()
+                .HasOne(rc => rc.Restaurant)
+                .WithMany(r => r.RestaurantCuisines)
+                .HasForeignKey(rc => rc.RestaurantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<RestaurantCuisine>()
+                .HasOne(rc => rc.Cuisine)
+                .WithMany(c => c.RestaurantCuisines)
+                .HasForeignKey(rc => rc.CuisineId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<RestaurantCuisine>()
+                .HasIndex(rc => new { rc.RestaurantId, rc.CuisineId })
                 .IsUnique();
         }
 

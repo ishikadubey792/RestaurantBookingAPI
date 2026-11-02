@@ -1,4 +1,3 @@
 <Solution>
-  <Project Path="../RestaurantBookingAPI.Tests/RestaurantBookingAPI.Tests.csproj" Id="f09c2781-c953-4c91-9a94-76df775e5ec6" />
   <Project Path="RestaurantBookingAPI.csproj" />
 </Solution>

@@ -59,6 +59,16 @@ namespace RestaurantBookingAPI
             builder.Services.AddScoped<OperatingHourValidator>();
             builder.Services.AddScoped<CheckAvailabilityValidator>();
 
+
+            // cuisine
+            builder.Services.AddScoped<ICuisineRepository, CuisineRepository>();
+            builder.Services.AddScoped<ICuisineService, CuisineService>();
+
+            // restaurant owner registration
+            builder.Services.AddScoped<IRestaurantOwnerRegistrationRepository,RestaurantOwnerRegistrationRepository>();
+
+            builder.Services.AddScoped<IRestaurantOwnerRegistrationService,RestaurantOwnerRegistrationService>();
+
             // Wishlist
             builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
             builder.Services.AddScoped<IWishlistService, WishlistService>();
@@ -67,7 +77,7 @@ namespace RestaurantBookingAPI
             // Payment
             builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
- 
+
 
             // JWT Authentication
             var jwtKey = builder.Configuration["Jwt:Key"]
@@ -141,6 +151,8 @@ namespace RestaurantBookingAPI
             }
 
             app.UseHttpsRedirection();
+
+            app.UseStaticFiles();
 
             app.UseAuthentication();
             app.UseAuthorization();
