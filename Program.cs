@@ -20,6 +20,7 @@ namespace RestaurantBookingAPI
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
             builder.Logging.ClearProviders();
             builder.Logging.AddConsole();
             builder.Logging.AddDebug();
@@ -59,25 +60,21 @@ namespace RestaurantBookingAPI
             builder.Services.AddScoped<OperatingHourValidator>();
             builder.Services.AddScoped<CheckAvailabilityValidator>();
 
-
-            // cuisine
+            // Cuisine
             builder.Services.AddScoped<ICuisineRepository, CuisineRepository>();
             builder.Services.AddScoped<ICuisineService, CuisineService>();
 
-            // restaurant owner registration
-            builder.Services.AddScoped<IRestaurantOwnerRegistrationRepository,RestaurantOwnerRegistrationRepository>();
-
-            builder.Services.AddScoped<IRestaurantOwnerRegistrationService,RestaurantOwnerRegistrationService>();
+            // Restaurant owner registration
+            builder.Services.AddScoped<IRestaurantOwnerRegistrationRepository, RestaurantOwnerRegistrationRepository>();
+            builder.Services.AddScoped<IRestaurantOwnerRegistrationService, RestaurantOwnerRegistrationService>();
 
             // Wishlist
             builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
             builder.Services.AddScoped<IWishlistService, WishlistService>();
 
-
             // Payment
             builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
-
 
             // JWT Authentication
             var jwtKey = builder.Configuration["Jwt:Key"]
@@ -106,6 +103,18 @@ namespace RestaurantBookingAPI
                 });
 
             builder.Services.AddAuthorization();
+
+            // CORS Configuration for Angular Frontend
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AngularDevelopment", policy =>
+                {
+                    policy
+                        .WithOrigins("http://localhost:4200")
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                });
+            });
 
             // Controllers
             builder.Services.AddControllers();
@@ -153,6 +162,9 @@ namespace RestaurantBookingAPI
             app.UseHttpsRedirection();
 
             app.UseStaticFiles();
+
+            // Enable CORS before Authentication and Authorization
+            app.UseCors("AngularDevelopment");
 
             app.UseAuthentication();
             app.UseAuthorization();

@@ -327,5 +327,13 @@ namespace RestaurantBookingAPI.Services
         {
             return await _bookingRepository.DeleteAsync(id);
         }
+
+
+        public async Task<List<OwnerRestaurantBooking>>
+    GetBookingsByRestaurantOwnerAsync(int ownerId)
+        {
+            return await _bookingRepository
+                .GetBookingsByRestaurantOwnerAsync(ownerId);
+        }
     }
 }

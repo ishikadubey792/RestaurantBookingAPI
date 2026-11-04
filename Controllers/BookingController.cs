@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using RestaurantBookingAPI.IServices;
 using RestaurantBookingAPI.Models;
 using RestaurantBookingAPI.Common;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace RestaurantBookingAPI.Controllers
 {
@@ -159,6 +161,30 @@ namespace RestaurantBookingAPI.Controllers
                 this,
                 "Available tables fetched successfully.",
                 tables
+            );
+        }
+
+
+        [HttpGet("my-restaurant-bookings")]
+        [Authorize(Roles = "RestaurantOwner")]
+        public async Task<IActionResult> GetMyRestaurantBookings()
+        {
+            var ownerIdValue = User.FindFirstValue(
+                ClaimTypes.NameIdentifier
+            );
+
+            if (!int.TryParse(ownerIdValue, out int ownerId))
+            {
+                return Unauthorized();
+            }
+
+            var bookings = await _service
+                .GetBookingsByRestaurantOwnerAsync(ownerId);
+
+            return ApiResponseHelper.Ok(
+                this,
+                "Restaurant bookings fetched successfully.",
+                bookings
             );
         }
     }

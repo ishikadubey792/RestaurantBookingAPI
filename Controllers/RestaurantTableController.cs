@@ -1,5 +1,7 @@
 ﻿
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using RestaurantBookingAPI.IServices;
 using RestaurantBookingAPI.Models;
 using RestaurantBookingAPI.Common;
@@ -18,6 +20,7 @@ namespace RestaurantBookingAPI.Controllers
             _service = service;
         }
 
+        // Existing read endpoint - unchanged
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -30,6 +33,7 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Existing read endpoint - unchanged
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -50,6 +54,7 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Existing read endpoint - unchanged
         [HttpGet("restaurant/{restaurantId}")]
         public async Task<IActionResult> GetByRestaurantId(
             int restaurantId)
@@ -64,12 +69,22 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Only RestaurantOwner can create tables
         [HttpPost]
+        [Authorize(Roles = "RestaurantOwner")]
         public async Task<IActionResult> Create(
-            RestaurantTable table)
+            [FromBody] RestaurantTable table)
         {
+            var ownerIdValue =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(ownerIdValue, out int ownerId))
+            {
+                return Unauthorized();
+            }
+
             var createdTable =
-                await _service.CreateAsync(table);
+                await _service.CreateAsync(table, ownerId);
 
             return ApiResponseHelper.Ok(
                 this,
@@ -78,13 +93,23 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Only RestaurantOwner can update tables
         [HttpPut("{id}")]
+        [Authorize(Roles = "RestaurantOwner")]
         public async Task<IActionResult> Update(
             int id,
-            RestaurantTable table)
+            [FromBody] RestaurantTable table)
         {
+            var ownerIdValue =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(ownerIdValue, out int ownerId))
+            {
+                return Unauthorized();
+            }
+
             var updated =
-                await _service.UpdateAsync(id, table);
+                await _service.UpdateAsync(id, table, ownerId);
 
             if (!updated)
             {
@@ -101,10 +126,21 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Only RestaurantOwner can delete tables
         [HttpDelete("{id}")]
+        [Authorize(Roles = "RestaurantOwner")]
         public async Task<IActionResult> Delete(int id)
         {
-            var deleted = await _service.DeleteAsync(id);
+            var ownerIdValue =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(ownerIdValue, out int ownerId))
+            {
+                return Unauthorized();
+            }
+
+            var deleted =
+                await _service.DeleteAsync(id, ownerId);
 
             if (!deleted)
             {

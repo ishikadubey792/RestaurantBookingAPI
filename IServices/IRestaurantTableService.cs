@@ -8,12 +8,20 @@ namespace RestaurantBookingAPI.IServices
 
         Task<RestaurantTable?> GetByIdAsync(int id);
 
-        Task<List<RestaurantTable>> GetByRestaurantIdAsync(int restaurantId);
+        Task<List<RestaurantTable>> GetByRestaurantIdAsync(
+            int restaurantId);
 
-        Task<RestaurantTable> CreateAsync(RestaurantTable table);
+        Task<RestaurantTable> CreateAsync(
+            RestaurantTable table,
+            int ownerUserId);
 
-        Task<bool> UpdateAsync(int id, RestaurantTable table);
+        Task<bool> UpdateAsync(
+            int id,
+            RestaurantTable table,
+            int ownerUserId);
 
-        Task<bool> DeleteAsync(int id);
+        Task<bool> DeleteAsync(
+            int id,
+            int ownerUserId);
     }
 }

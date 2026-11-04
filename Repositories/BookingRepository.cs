@@ -138,5 +138,49 @@ namespace RestaurantBookingAPI.Repositories
             return result.FirstOrDefault();
         }
 
+
+        public async Task<List<OwnerRestaurantBooking>>
+    GetBookingsByRestaurantOwnerAsync(int ownerId)
+        {
+            var bookings = await (
+                from booking in _context.Bookings.AsNoTracking()
+
+                join table in _context.RestaurantTables.AsNoTracking()
+                    on booking.RestaurantTableId equals table.Id
+
+                join restaurant in _context.Restaurants.AsNoTracking()
+                    on table.RestaurantId equals restaurant.Id
+
+                join customer in _context.Customers.AsNoTracking()
+                    on booking.CustomerId equals customer.Id
+
+                where restaurant.OwnerUserId == ownerId
+
+                orderby booking.BookingDate descending
+
+                select new OwnerRestaurantBooking
+                {
+                    BookingId = booking.Id,
+                    RestaurantId = restaurant.Id,
+                    RestaurantName = restaurant.Name,
+
+                    CustomerName = customer.Name,
+                    CustomerEmail = customer.Email,
+                    CustomerPhone = customer.Phone,
+
+                    BookingDate = booking.BookingDate,
+                    StartTime = booking.StartTime,
+                    EndTime = booking.EndTime,
+                    NumberOfGuests = booking.NumberOfGuests,
+
+                    Status = booking.Status,
+                    SpecialRequest = booking.SpecialRequest,
+                    CreatedAt = booking.CreatedAt
+                }
+            ).ToListAsync();
+
+            return bookings;
+        }
+
     }
 }

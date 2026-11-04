@@ -1,4 +1,5 @@
-﻿using RestaurantBookingAPI.Models;
+﻿
+using RestaurantBookingAPI.Models;
 
 namespace RestaurantBookingAPI.IServices
 {
@@ -12,12 +13,16 @@ namespace RestaurantBookingAPI.IServices
             int restaurantId);
 
         Task<OperatingHour> CreateAsync(
-            OperatingHour operatingHour);
+            OperatingHour operatingHour,
+            int ownerUserId);
 
         Task<bool> UpdateAsync(
             int id,
-            OperatingHour operatingHour);
+            OperatingHour operatingHour,
+            int ownerUserId);
 
-        Task<bool> DeleteAsync(int id);
+        Task<bool> DeleteAsync(
+            int id,
+            int ownerUserId);
     }
 }

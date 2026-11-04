@@ -1,5 +1,7 @@
 ﻿
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using RestaurantBookingAPI.IServices;
 using RestaurantBookingAPI.Models;
 using RestaurantBookingAPI.Common;
@@ -18,11 +20,11 @@ namespace RestaurantBookingAPI.Controllers
             _service = service;
         }
 
+        // Public read endpoint
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var operatingHours =
-                await _service.GetAllAsync();
+            var operatingHours = await _service.GetAllAsync();
 
             return ApiResponseHelper.Ok(
                 this,
@@ -31,11 +33,11 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Public read endpoint
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var operatingHour =
-                await _service.GetByIdAsync(id);
+            var operatingHour = await _service.GetByIdAsync(id);
 
             if (operatingHour == null)
             {
@@ -52,14 +54,13 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Public read endpoint
         [HttpGet("restaurant/{restaurantId}")]
         public async Task<IActionResult> GetByRestaurantId(
             int restaurantId)
         {
             var operatingHours =
-                await _service.GetByRestaurantIdAsync(
-                    restaurantId
-                );
+                await _service.GetByRestaurantIdAsync(restaurantId);
 
             return ApiResponseHelper.Ok(
                 this,
@@ -68,12 +69,25 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Only RestaurantOwner can create operating hours
         [HttpPost]
+        [Authorize(Roles = "RestaurantOwner")]
         public async Task<IActionResult> Create(
-            OperatingHour operatingHour)
+            [FromBody] OperatingHour operatingHour)
         {
+            var ownerIdValue =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(ownerIdValue, out int ownerId))
+            {
+                return Unauthorized();
+            }
+
             var createdOperatingHour =
-                await _service.CreateAsync(operatingHour);
+                await _service.CreateAsync(
+                    operatingHour,
+                    ownerId
+                );
 
             return ApiResponseHelper.Ok(
                 this,
@@ -82,15 +96,26 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Only RestaurantOwner can update operating hours
         [HttpPut("{id}")]
+        [Authorize(Roles = "RestaurantOwner")]
         public async Task<IActionResult> Update(
             int id,
-            OperatingHour operatingHour)
+            [FromBody] OperatingHour operatingHour)
         {
+            var ownerIdValue =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(ownerIdValue, out int ownerId))
+            {
+                return Unauthorized();
+            }
+
             var updated =
                 await _service.UpdateAsync(
                     id,
-                    operatingHour
+                    operatingHour,
+                    ownerId
                 );
 
             if (!updated)
@@ -108,11 +133,21 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // Only RestaurantOwner can delete operating hours
         [HttpDelete("{id}")]
+        [Authorize(Roles = "RestaurantOwner")]
         public async Task<IActionResult> Delete(int id)
         {
+            var ownerIdValue =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(ownerIdValue, out int ownerId))
+            {
+                return Unauthorized();
+            }
+
             var deleted =
-                await _service.DeleteAsync(id);
+                await _service.DeleteAsync(id, ownerId);
 
             if (!deleted)
             {

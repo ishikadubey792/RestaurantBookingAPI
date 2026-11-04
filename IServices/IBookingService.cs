@@ -21,5 +21,8 @@ namespace RestaurantBookingAPI.IServices
 
         Task<List<RestaurantTable>> GetAvailableTablesAsync(
             CheckAvailabilityModel request);
+
+        Task<List<OwnerRestaurantBooking>>
+    GetBookingsByRestaurantOwnerAsync(int ownerId);
     }
 }
