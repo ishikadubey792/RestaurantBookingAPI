@@ -1,10 +1,11 @@
 ﻿
 using Microsoft.AspNetCore.Mvc;
-using RestaurantBookingAPI.IServices;
-using RestaurantBookingAPI.Models;
-using RestaurantBookingAPI.Common;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using RestaurantBookingAPI.IServices;
+using RestaurantBookingAPI.IRepository;
+using RestaurantBookingAPI.Models;
+using RestaurantBookingAPI.Common;
 
 namespace RestaurantBookingAPI.Controllers
 {
@@ -13,30 +14,70 @@ namespace RestaurantBookingAPI.Controllers
     public class BookingController : ControllerBase
     {
         private readonly IBookingService _service;
+        private readonly ICustomerRepository _customerRepository;
 
-        public BookingController(IBookingService service)
+        // Constructor: Injects booking service and customer repository.
+        public BookingController(
+            IBookingService service,
+            ICustomerRepository customerRepository)
         {
             _service = service;
+            _customerRepository = customerRepository;
+        }
+
+        // Extracts the authenticated UserId from JWT
+        // and resolves the corresponding Customer record.
+        // This prevents users from supplying another CustomerId.
+        private async Task<int?> GetAuthenticatedCustomerIdAsync()
+        {
+            var userIdValue = User.FindFirstValue(
+                ClaimTypes.NameIdentifier
+            );
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return null;
+            }
+
+            var customer = await _customerRepository
+                .GetByUserIdAsync(userId);
+
+            return customer?.Id;
         }
 
         // GET: api/bookings
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var bookings = await _service.GetAllAsync();
+        // General booking list is restricted to RestaurantOwner.
+        // Customer users must use their own booking history endpoint.
+        //[HttpGet]
+        //[Authorize(Roles = "RestaurantOwner")]
+        //public async Task<IActionResult> GetAll()
+        //{
+        //    var bookings = await _service.GetAllAsync();
 
-            return ApiResponseHelper.Ok(
-                this,
-                "Bookings fetched successfully.",
-                bookings
-            );
-        }
+        //    return ApiResponseHelper.Ok(
+        //        this,
+        //        "Bookings fetched successfully.",
+        //        bookings
+        //    );
+        //}
 
         // GET: api/bookings/1
+        // Retrieves a booking only if it belongs to the authenticated customer.
         [HttpGet("{id}")]
+        [Authorize(Roles = "Customer")]
         public async Task<IActionResult> GetById(int id)
         {
-            var booking = await _service.GetByIdAsync(id);
+            var customerId = await GetAuthenticatedCustomerIdAsync();
+
+            if (customerId == null)
+            {
+                return Unauthorized();
+            }
+
+            var booking = await _service.GetByIdAsync(
+                id,
+                customerId.Value
+            );
 
             if (booking == null)
             {
@@ -54,11 +95,28 @@ namespace RestaurantBookingAPI.Controllers
         }
 
         // GET: api/bookings/customer/1
+        // CustomerId is resolved from JWT, not trusted from the URL.
         [HttpGet("customer/{customerId}")]
+        [Authorize(Roles = "Customer")]
         public async Task<IActionResult> GetByCustomerId(int customerId)
         {
-            var bookings =
-                await _service.GetByCustomerIdAsync(customerId);
+            var authenticatedCustomerId =
+                await GetAuthenticatedCustomerIdAsync();
+
+            if (authenticatedCustomerId == null)
+            {
+                return Unauthorized();
+            }
+
+            // Prevent access to another customer's booking history.
+            if (customerId != authenticatedCustomerId.Value)
+            {
+                return Forbid();
+            }
+
+            var bookings = await _service.GetByCustomerIdAsync(
+                authenticatedCustomerId.Value
+            );
 
             return ApiResponseHelper.Ok(
                 this,
@@ -67,12 +125,25 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+
         // POST: api/bookings
+        // Creates a booking for the authenticated customer only.
         [HttpPost]
-        public async Task<IActionResult> Create(Booking booking)
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> Create(
+            [FromBody] CreateBookingRequest request)
         {
-            var createdBooking =
-                await _service.CreateAsync(booking);
+            var customerId = await GetAuthenticatedCustomerIdAsync();
+
+            if (customerId == null)
+            {
+                return Unauthorized();
+            }
+
+            var createdBooking = await _service.CreateAsync(
+                request,
+                customerId.Value
+            );
 
             return ApiResponseHelper.Ok(
                 this,
@@ -81,14 +152,28 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+
+
         // PUT: api/bookings/1
+        // Updates a booking only if it belongs to the authenticated customer.
         [HttpPut("{id}")]
+        [Authorize(Roles = "Customer")]
         public async Task<IActionResult> Update(
             int id,
-            Booking booking)
+            [FromBody] UpdateBookingRequest request)
         {
-            var updated =
-                await _service.UpdateAsync(id, booking);
+            var customerId = await GetAuthenticatedCustomerIdAsync();
+
+            if (customerId == null)
+            {
+                return Unauthorized();
+            }
+
+            var updated = await _service.UpdateAsync(
+                id,
+                request,
+                customerId.Value
+            );
 
             if (!updated)
             {
@@ -106,10 +191,23 @@ namespace RestaurantBookingAPI.Controllers
         }
 
 
+        // POST: api/bookings/1/cancel
+        // Cancels a booking only if it belongs to the authenticated customer.
         [HttpPost("{id}/cancel")]
+        [Authorize(Roles = "Customer")]
         public async Task<IActionResult> Cancel(int id)
         {
-            var cancelled = await _service.CancelAsync(id);
+            var customerId = await GetAuthenticatedCustomerIdAsync();
+
+            if (customerId == null)
+            {
+                return Unauthorized();
+            }
+
+            var cancelled = await _service.CancelAsync(
+                id,
+                customerId.Value
+            );
 
             if (!cancelled)
             {
@@ -126,13 +224,23 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
-
         // DELETE: api/bookings/1
+        // Deletes a booking only if it belongs to the authenticated customer.
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Customer")]
         public async Task<IActionResult> Delete(int id)
         {
-            var deleted =
-                await _service.DeleteAsync(id);
+            var customerId = await GetAuthenticatedCustomerIdAsync();
+
+            if (customerId == null)
+            {
+                return Unauthorized();
+            }
+
+            var deleted = await _service.DeleteAsync(
+                id,
+                customerId.Value
+            );
 
             if (!deleted)
             {
@@ -150,12 +258,13 @@ namespace RestaurantBookingAPI.Controllers
         }
 
         // GET: api/bookings/availability
+        // Public endpoint: customers can check availability without logging in.
         [HttpGet("availability")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAvailableTables(
             [FromQuery] CheckAvailabilityModel request)
         {
-            var tables =
-                await _service.GetAvailableTablesAsync(request);
+            var tables = await _service.GetAvailableTablesAsync(request);
 
             return ApiResponseHelper.Ok(
                 this,
@@ -164,7 +273,8 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
-
+        // GET: api/bookings/my-restaurant-bookings
+        // Retrieves bookings only for restaurants owned by the authenticated owner.
         [HttpGet("my-restaurant-bookings")]
         [Authorize(Roles = "RestaurantOwner")]
         public async Task<IActionResult> GetMyRestaurantBookings()

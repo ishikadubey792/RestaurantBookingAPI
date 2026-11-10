@@ -1,4 +1,5 @@
 ﻿
+using Microsoft.Data.SqlClient;
 using RestaurantBookingAPI.Common;
 using RestaurantBookingAPI.Exceptions;
 
@@ -25,66 +26,67 @@ namespace RestaurantBookingAPI.Middleware
             }
             catch (NotFoundException ex)
             {
-                context.Response.StatusCode =
-                    StatusCodes.Status404NotFound;
-
-                context.Response.ContentType = "application/json";
-
-                var response = new ApiResponse<object>(
+                await WriteErrorResponse(
+                    context,
                     StatusCodes.Status404NotFound,
-                    ex.Message,
-                    null
-                );
-
-                await context.Response.WriteAsJsonAsync(response);
+                    ex.Message);
             }
             catch (BadRequestException ex)
             {
-                context.Response.StatusCode =
-                    StatusCodes.Status400BadRequest;
-
-                context.Response.ContentType = "application/json";
-
-                var response = new ApiResponse<object>(
+                await WriteErrorResponse(
+                    context,
                     StatusCodes.Status400BadRequest,
-                    ex.Message,
-                    null
-                );
-
-                await context.Response.WriteAsJsonAsync(response);
+                    ex.Message);
             }
             catch (BookingConflictException ex)
             {
-                context.Response.StatusCode =
-                    StatusCodes.Status409Conflict;
-
-                context.Response.ContentType = "application/json";
-
-                var response = new ApiResponse<object>(
+                await WriteErrorResponse(
+                    context,
                     StatusCodes.Status409Conflict,
-                    ex.Message,
-                    null
-                );
+                    ex.Message);
+            }
+            catch (SqlException ex) when (ex.Number == 50002)
+            {
+                // Convert the database booking conflict into HTTP 409.
+                _logger.LogWarning(
+                    ex,
+                    "Database booking conflict detected.");
 
-                await context.Response.WriteAsJsonAsync(response);
+                await WriteErrorResponse(
+                    context,
+                    StatusCodes.Status409Conflict,
+                    "This table is already booked for the selected time.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled exception occurred.");
+                // Log complete details internally.
+                _logger.LogError(
+                    ex,
+                    "Unhandled exception occurred.");
 
-                context.Response.StatusCode =
-                    StatusCodes.Status500InternalServerError;
-
-                context.Response.ContentType = "application/json";
-
-                var response = new ApiResponse<object>(
+                // Do not expose internal exception details to clients.
+                await WriteErrorResponse(
+                    context,
                     StatusCodes.Status500InternalServerError,
-                    $"Debug error: {ex.GetType().Name} - {ex.Message}",
-                    null
-                );
-
-                await context.Response.WriteAsJsonAsync(response);
+                    "An unexpected error occurred. Please try again later.");
             }
+        }
+
+        // Creates a consistent API error response.
+        private static async Task WriteErrorResponse(
+            HttpContext context,
+            int statusCode,
+            string message)
+        {
+            context.Response.StatusCode = statusCode;
+            context.Response.ContentType = "application/json";
+
+            var response = new ApiResponse<object>(
+                statusCode,
+                message,
+                null);
+
+            await context.Response.WriteAsJsonAsync(response);
         }
     }
 }
