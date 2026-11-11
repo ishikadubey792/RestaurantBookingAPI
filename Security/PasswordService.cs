@@ -13,15 +13,17 @@ namespace RestaurantBookingAPI.Security
             return _passwordHasher.HashPassword(user, password);
         }
 
-        public bool VerifyPassword(User user, string passwordHash, string password)
+        // Returns the actual verification result instead of only true/false.
+        public PasswordVerificationResult VerifyPassword(
+            User user,
+            string passwordHash,
+            string password)
         {
-            var result = _passwordHasher.VerifyHashedPassword(
+            return _passwordHasher.VerifyHashedPassword(
                 user,
                 passwordHash,
                 password
             );
-
-            return result != PasswordVerificationResult.Failed;
         }
     }
 }

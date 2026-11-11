@@ -1,11 +1,12 @@
-﻿using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
+﻿using Microsoft.AspNetCore.Identity;
 using RestaurantBookingAPI.Exceptions;
 using RestaurantBookingAPI.IRepository;
 using RestaurantBookingAPI.IServices;
 using RestaurantBookingAPI.Models;
 using RestaurantBookingAPI.Security;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace RestaurantBookingAPI.Services
 {
@@ -67,7 +68,7 @@ namespace RestaurantBookingAPI.Services
             if (!IsPasswordValid(password))
             {
                 throw new BadRequestException(
-                    "Password must be 8-128 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character. Spaces are not allowed."
+                    "Password must be 8-30 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character. Spaces are not allowed."
                 );
             }
 
@@ -167,17 +168,25 @@ namespace RestaurantBookingAPI.Services
                 return null;
             }
 
-            bool isPasswordValid =
-                _passwordService.VerifyPassword(
-                    user,
-                    user.PasswordHash,
-                    password
-                );
 
-            if (!isPasswordValid)
+            var verificationResult = _passwordService.VerifyPassword(
+                user,
+                user.PasswordHash,
+                password
+            );
+
+            // Incorrect password: reject login.
+            if (verificationResult == PasswordVerificationResult.Failed)
             {
                 return null;
             }
+
+            // Password is correct, but its stored hash needs upgrading.
+            if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                user.PasswordHash = _passwordService.HashPassword(user, password);
+            }
+
 
             // Reactivate the account after valid credentials
             user.IsActive = true;
