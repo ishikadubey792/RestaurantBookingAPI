@@ -1,4 +1,4 @@
-﻿
+
 using RestaurantBookingAPI.Models;
 
 namespace RestaurantBookingAPI.IServices
@@ -9,12 +9,13 @@ namespace RestaurantBookingAPI.IServices
             int bookingId,
             int userId);
 
-        Task<Payment?> GetPaymentByIdAsync(int paymentId);
+        Task<Payment?> GetPaymentByIdAsync(int paymentId, int userId);
 
         Task<List<Payment>> GetPaymentHistoryAsync(int userId);
 
         Task<Payment> ProcessDemoPaymentAsync(
             int paymentId,
+            int userId,
             bool simulateSuccess);
     }
 }

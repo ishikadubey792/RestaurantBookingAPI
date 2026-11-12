@@ -1,7 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RestaurantBookingAPI.Common;
-using RestaurantBookingAPI.IRepository;
 using RestaurantBookingAPI.IServices;
 using System.Security.Claims;
 
@@ -9,26 +8,18 @@ namespace RestaurantBookingAPI.Controllers
 {
     [ApiController]
     [Route("api/payments")]
+    [Authorize(Roles = "Customer")]
     public class PaymentController : ControllerBase
     {
         private readonly IPaymentService _paymentService;
 
-        private readonly ICustomerRepository _customerRepository;
-
-        private readonly IBookingRepository _bookingRepository;
-
-
-        public PaymentController(IPaymentService paymentService,
-                                 ICustomerRepository customerRepository,
-                                 IBookingRepository bookingRepository)
-            {
-                _paymentService = paymentService;
-                _customerRepository = customerRepository;
-                _bookingRepository = bookingRepository;
+        public PaymentController(IPaymentService paymentService)
+        {
+            _paymentService = paymentService;
         }
         
 
-        [Authorize]
+        [Authorize(Roles = "Customer")]
         [HttpPost("initiate/{bookingId:int}")]
         public async Task<IActionResult> InitiatePayment(int bookingId)
         {
@@ -54,7 +45,7 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
-        [Authorize]
+        [Authorize(Roles = "Customer")]
         [HttpGet("history")]
         public async Task<IActionResult> GetPaymentHistory()
         {
@@ -79,7 +70,7 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
-        [Authorize]
+        [Authorize(Roles = "Customer")]
         [HttpGet("{paymentId:int}")]
         public async Task<IActionResult> GetPaymentById(int paymentId)
         {
@@ -94,7 +85,9 @@ namespace RestaurantBookingAPI.Controllers
                 });
             }
 
-            var payment = await _paymentService.GetPaymentByIdAsync(paymentId);
+            var payment = await _paymentService.GetPaymentByIdAsync(
+                paymentId,
+                userId);
 
             if (payment == null)
             {
@@ -104,21 +97,6 @@ namespace RestaurantBookingAPI.Controllers
                 });
             }
 
-
-            var customer = await _customerRepository.GetByUserIdAsync(userId);
-            var booking = await _bookingRepository.GetByIdAsync(payment.BookingId);
-
-            if (customer == null ||
-                booking == null ||
-                customer.Id != booking.CustomerId)
-            {
-                return NotFound(new
-                {
-                    message = "Payment not found."
-                });
-            }
-
-
             return ApiResponseHelper.Ok(
                 this,
                 "Payment details fetched successfully.",
@@ -126,7 +104,7 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
-        [Authorize]
+        [Authorize(Roles = "Customer")]
         [HttpPost("{paymentId:int}/process-demo")]
         public async Task<IActionResult> ProcessDemoPayment(
     int paymentId,
@@ -143,7 +121,9 @@ namespace RestaurantBookingAPI.Controllers
                 });
             }
 
-            var payment = await _paymentService.GetPaymentByIdAsync(paymentId);
+            var payment = await _paymentService.GetPaymentByIdAsync(
+                paymentId,
+                userId);
 
             if (payment == null)
             {
@@ -153,24 +133,10 @@ namespace RestaurantBookingAPI.Controllers
                 });
             }
 
-
-            var customer = await _customerRepository.GetByUserIdAsync(userId);
-            var booking = await _bookingRepository.GetByIdAsync(payment.BookingId);
-
-            if (customer == null ||
-                booking == null ||
-                customer.Id != booking.CustomerId)
-            {
-                return NotFound(new
-                {
-                    message = "Payment not found."
-                });
-            }
-
-
             var processedPayment =
                 await _paymentService.ProcessDemoPaymentAsync(
                     paymentId,
+                    userId,
                     simulateSuccess);
 
             return ApiResponseHelper.Ok(

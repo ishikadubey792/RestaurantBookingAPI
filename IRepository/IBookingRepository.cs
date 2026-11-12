@@ -8,6 +8,8 @@ namespace RestaurantBookingAPI.IRepository
 
         Task<Booking?> GetByIdAsync(int id);
 
+        Task<Booking?> GetByIdForUpdateAsync(int id);
+
         Task<List<Booking>> GetByCustomerIdAsync(int customerId);
 
         Task<List<Booking>> GetByTableAndDateAsync(

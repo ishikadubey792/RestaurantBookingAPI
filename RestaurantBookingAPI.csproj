@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dfa4cdde-24fe-4a25-9785-bb772c22ccbb</UserSecretsId>
+    <DefaultItemExcludes>$(DefaultItemExcludes);RestaurantBookingAPI.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,5 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using RestaurantBookingAPI.Data;
+using RestaurantBookingAPI.Exceptions;
 using RestaurantBookingAPI.IRepository;
 using RestaurantBookingAPI.Models;
 
@@ -25,6 +27,16 @@ namespace RestaurantBookingAPI.Repositories
         {
             var bookings = await _context.Bookings
                 .FromSqlInterpolated($"EXEC GetBookingById @Id = {id}")
+                .ToListAsync();
+
+            return bookings.FirstOrDefault();
+        }
+
+        public async Task<Booking?> GetByIdForUpdateAsync(int id)
+        {
+            var bookings = await _context.Bookings
+                .FromSqlInterpolated($"EXEC dbo.GetBookingByIdForUpdate @Id = {id}")
+                .AsNoTracking()
                 .ToListAsync();
 
             return bookings.FirstOrDefault();
@@ -100,31 +112,47 @@ namespace RestaurantBookingAPI.Repositories
 
         public async Task<bool> UpdateAsync(Booking booking)
         {
-            var bookings = await _context.Bookings
-                .FromSqlInterpolated($"""
-            EXEC dbo.UpdateBooking
-                @Id = {booking.Id},
-                @BookingDate = {booking.BookingDate.Date},
-                @StartTime = {booking.StartTime},
-                @EndTime = {booking.EndTime},
-                @NumberOfGuests = {booking.NumberOfGuests},
-                @Status = {booking.Status},
-                @SpecialRequest = {booking.SpecialRequest}
-            """)
-                .ToListAsync();
+            try
+            {
+                var bookings = await _context.Bookings
+                    .FromSqlInterpolated($"""
+                EXEC dbo.UpdateBooking
+                    @Id = {booking.Id},
+                    @BookingDate = {booking.BookingDate.Date},
+                    @StartTime = {booking.StartTime},
+                    @EndTime = {booking.EndTime},
+                    @NumberOfGuests = {booking.NumberOfGuests},
+                    @Status = {booking.Status},
+                    @SpecialRequest = {booking.SpecialRequest}
+                """)
+                    .AsNoTracking()
+                    .ToListAsync();
 
-            return bookings.Any();
+                return bookings.Any();
+            }
+            catch (SqlException ex) when (ex.Number is >= 50031 and <= 50035)
+            {
+                throw new BadRequestException(ex.Message);
+            }
         }
 
 
         public async Task<bool> CancelAsync(int id)
         {
-            var bookings = await _context.Bookings
-                .FromSqlInterpolated(
-                    $"EXEC dbo.CancelBooking @Id = {id}")
-                .ToListAsync();
+            try
+            {
+                var bookings = await _context.Bookings
+                    .FromSqlInterpolated(
+                        $"EXEC dbo.CancelBooking @Id = {id}")
+                    .AsNoTracking()
+                    .ToListAsync();
 
-            return bookings.Any();
+                return bookings.Any();
+            }
+            catch (SqlException ex) when (ex.Number is >= 50031 and <= 50035)
+            {
+                throw new BadRequestException(ex.Message);
+            }
         }
 
 

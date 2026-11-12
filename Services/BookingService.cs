@@ -1,4 +1,4 @@
-﻿
+
 using RestaurantBookingAPI.Exceptions;
 using RestaurantBookingAPI.IRepository;
 using RestaurantBookingAPI.IServices;
@@ -219,6 +219,16 @@ namespace RestaurantBookingAPI.Services
                 return false;
             }
 
+            if (string.Equals(existingBooking.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BadRequestException("A cancelled booking cannot be modified.");
+            }
+
+            if (string.Equals(existingBooking.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BadRequestException("A completed booking cannot be modified.");
+            }
+
             // Build a validation entity while preserving system-controlled fields.
             var booking = new Booking
             {
@@ -326,15 +336,18 @@ namespace RestaurantBookingAPI.Services
                 return false;
             }
 
+            if (string.Equals(booking.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BadRequestException("A completed booking cannot be cancelled.");
+            }
+
             // Avoid updating a booking that is already cancelled.
-            if (booking.Status == "Cancelled")
+            if (string.Equals(booking.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
 
-            booking.Status = "Cancelled";
-
-            return await _bookingRepository.UpdateAsync(booking);
+            return await _bookingRepository.CancelAsync(id);
         }
 
         // Deletes a booking only if it belongs to the authenticated customer.
