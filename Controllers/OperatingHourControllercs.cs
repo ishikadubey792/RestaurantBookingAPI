@@ -1,4 +1,4 @@
-﻿
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -20,8 +20,22 @@ namespace RestaurantBookingAPI.Controllers
             _service = service;
         }
 
-        // Public read endpoint
+        private int? GetCurrentOwnerId()
+        {
+            var ownerIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                            ?? User.FindFirst("sub")?.Value;
+
+            if (!int.TryParse(ownerIdValue, out int id))
+            {
+                return null;
+            }
+
+            return id;
+        }
+
+        // Restrict global operating hours listing to Admin
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAll()
         {
             var operatingHours = await _service.GetAllAsync();
@@ -35,6 +49,7 @@ namespace RestaurantBookingAPI.Controllers
 
         // Public read endpoint
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(int id)
         {
             var operatingHour = await _service.GetByIdAsync(id);
@@ -54,8 +69,9 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
-        // Public read endpoint
+        // Public read endpoint for restaurant operating hours
         [HttpGet("restaurant/{restaurantId}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetByRestaurantId(
             int restaurantId)
         {
@@ -75,10 +91,8 @@ namespace RestaurantBookingAPI.Controllers
         public async Task<IActionResult> Create(
             [FromBody] OperatingHour operatingHour)
         {
-            var ownerIdValue =
-                User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(ownerIdValue, out int ownerId))
+            var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
             {
                 return Unauthorized();
             }
@@ -86,7 +100,7 @@ namespace RestaurantBookingAPI.Controllers
             var createdOperatingHour =
                 await _service.CreateAsync(
                     operatingHour,
-                    ownerId
+                    ownerId.Value
                 );
 
             return ApiResponseHelper.Ok(
@@ -103,10 +117,8 @@ namespace RestaurantBookingAPI.Controllers
             int id,
             [FromBody] OperatingHour operatingHour)
         {
-            var ownerIdValue =
-                User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(ownerIdValue, out int ownerId))
+            var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
             {
                 return Unauthorized();
             }
@@ -115,7 +127,7 @@ namespace RestaurantBookingAPI.Controllers
                 await _service.UpdateAsync(
                     id,
                     operatingHour,
-                    ownerId
+                    ownerId.Value
                 );
 
             if (!updated)
@@ -138,16 +150,14 @@ namespace RestaurantBookingAPI.Controllers
         [Authorize(Roles = "RestaurantOwner")]
         public async Task<IActionResult> Delete(int id)
         {
-            var ownerIdValue =
-                User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(ownerIdValue, out int ownerId))
+            var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
             {
                 return Unauthorized();
             }
 
             var deleted =
-                await _service.DeleteAsync(id, ownerId);
+                await _service.DeleteAsync(id, ownerId.Value);
 
             if (!deleted)
             {

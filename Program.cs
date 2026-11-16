@@ -76,6 +76,10 @@ namespace RestaurantBookingAPI
             builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
 
+            // Owner Dashboard
+            builder.Services.AddScoped<IOwnerDashboardRepository, OwnerDashboardRepository>();
+            builder.Services.AddScoped<IOwnerDashboardService, OwnerDashboardService>();
+
             // JWT Authentication
             var jwtKey = builder.Configuration["Jwt:Key"]
                 ?? throw new InvalidOperationException("JWT Key is missing.");

@@ -1,4 +1,4 @@
-﻿using RestaurantBookingAPI.Exceptions;
+using RestaurantBookingAPI.Exceptions;
 using RestaurantBookingAPI.IRepository;
 using RestaurantBookingAPI.IServices;
 using RestaurantBookingAPI.Models;
@@ -27,6 +27,11 @@ namespace RestaurantBookingAPI.Services
         public async Task<Customer?> GetByIdAsync(int id)
         {
             return await _repository.GetByIdAsync(id);
+        }
+
+        public async Task<Customer?> GetByUserIdAsync(int userId)
+        {
+            return await _repository.GetByUserIdAsync(userId);
         }
 
         public async Task<Customer> CreateAsync(Customer customer)

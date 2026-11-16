@@ -1,6 +1,7 @@
-﻿
+
 using Microsoft.EntityFrameworkCore;
 using RestaurantBookingAPI.Data;
+using RestaurantBookingAPI.Exceptions;
 using RestaurantBookingAPI.IRepository;
 using RestaurantBookingAPI.Models;
 
@@ -90,6 +91,16 @@ namespace RestaurantBookingAPI.Repositories
 
         public async Task<bool> DeleteAsync(int id)
         {
+            var hasBookings = await _context.Bookings
+                .AsNoTracking()
+                .AnyAsync(b => b.RestaurantTableId == id);
+
+            if (hasBookings)
+            {
+                throw new BadRequestException(
+                    "Cannot delete table because it has associated bookings. Change table status instead.");
+            }
+
             var results = await _context.Database
                 .SqlQueryRaw<int>(
                     "EXEC dbo.DeleteRestaurantTable @Id = {0}", id)

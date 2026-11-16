@@ -1,4 +1,4 @@
-﻿using RestaurantBookingAPI.Models;
+using RestaurantBookingAPI.Models;
 
 namespace RestaurantBookingAPI.IRepository
 {
@@ -32,6 +32,14 @@ namespace RestaurantBookingAPI.IRepository
         Task<bool> DeleteAsync(int id);
 
         Task<List<OwnerRestaurantBooking>>
-    GetBookingsByRestaurantOwnerAsync(int ownerId);
+            GetBookingsByRestaurantOwnerAsync(
+                int ownerId,
+                int? restaurantId = null,
+                string? status = null,
+                DateTime? bookingDate = null,
+                DateTime? fromDate = null,
+                DateTime? toDate = null);
+
+        Task<Booking?> GetByIdAndOwnerIdAsync(int bookingId, int ownerId);
     }
 }

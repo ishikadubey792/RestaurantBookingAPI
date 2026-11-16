@@ -1,4 +1,4 @@
-﻿
+
 using RestaurantBookingAPI.Exceptions;
 using RestaurantBookingAPI.IRepository;
 using RestaurantBookingAPI.IServices;
@@ -63,6 +63,16 @@ namespace RestaurantBookingAPI.Services
                     "Restaurant not found or you do not have permission to manage it.");
             }
 
+            // Verify duplicate table number within the same restaurant
+            var existingTables =
+                await _repository.GetByRestaurantIdAsync(table.RestaurantId);
+
+            if (existingTables.Any(t => t.TableNumber == table.TableNumber))
+            {
+                throw new BadRequestException(
+                    $"Table number {table.TableNumber} already exists in this restaurant.");
+            }
+
             return await _repository.AddAsync(table);
         }
 
@@ -96,6 +106,31 @@ namespace RestaurantBookingAPI.Services
             if (restaurant == null)
             {
                 return false;
+            }
+
+            // Prevent reassigning table to a different restaurant
+            if (table.RestaurantId != 0 && table.RestaurantId != existingTable.RestaurantId)
+            {
+                var targetRestaurant =
+                    await _restaurantRepository.GetByIdAndOwnerIdAsync(
+                        table.RestaurantId,
+                        ownerUserId);
+
+                if (targetRestaurant == null)
+                {
+                    throw new BadRequestException(
+                        "Cannot reassign table to a restaurant you do not own.");
+                }
+            }
+
+            // Verify duplicate table number within the restaurant (excluding this table)
+            var existingTables =
+                await _repository.GetByRestaurantIdAsync(existingTable.RestaurantId);
+
+            if (existingTables.Any(t => t.Id != id && t.TableNumber == table.TableNumber))
+            {
+                throw new BadRequestException(
+                    $"Table number {table.TableNumber} already exists in this restaurant.");
             }
 
             // Do not allow the owner to move a table to another restaurant.

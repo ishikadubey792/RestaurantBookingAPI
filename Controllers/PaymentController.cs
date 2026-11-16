@@ -17,7 +17,7 @@ namespace RestaurantBookingAPI.Controllers
         {
             _paymentService = paymentService;
         }
-        
+
 
         [Authorize(Roles = "Customer")]
         [HttpPost("initiate/{bookingId:int}")]

@@ -1,4 +1,4 @@
-﻿using RestaurantBookingAPI.Exceptions;
+using RestaurantBookingAPI.Exceptions;
 using RestaurantBookingAPI.IRepository;
 using RestaurantBookingAPI.IServices;
 using RestaurantBookingAPI.Models;
@@ -83,6 +83,25 @@ namespace RestaurantBookingAPI.Services
             return await _repository.DeleteAsync(id);
         }
 
+        public async Task<Restaurant> CreateMyRestaurantAsync(
+            Restaurant restaurant,
+            int ownerUserId)
+        {
+            var errors = _validator.Validate(restaurant);
+
+            if (errors.Any())
+            {
+                throw new BadRequestException(
+                    string.Join(" ", errors));
+            }
+
+            // Bind explicitly to authenticated owner identity
+            restaurant.OwnerUserId = ownerUserId;
+            restaurant.IsActive = true;
+
+            return await _repository.AddAsync(restaurant);
+        }
+
         public async Task<List<Restaurant>> GetMyRestaurantsAsync(int ownerUserId)
         {
             return await _repository.GetByOwnerIdAsync(ownerUserId);
@@ -132,6 +151,14 @@ namespace RestaurantBookingAPI.Services
             existingRestaurant.City = restaurant.City;
             existingRestaurant.Description = restaurant.Description;
 
+            if (!string.IsNullOrWhiteSpace(restaurant.CoverImagePath))
+            {
+                existingRestaurant.CoverImagePath = restaurant.CoverImagePath;
+            }
+
+            existingRestaurant.IsActive = restaurant.IsActive;
+
+            // Strictly preserve OwnerUserId and Id (prevent reassignment)
             return await _repository.UpdateAsync(existingRestaurant);
         }
 

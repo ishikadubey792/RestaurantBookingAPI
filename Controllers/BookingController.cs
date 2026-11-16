@@ -1,4 +1,4 @@
-﻿
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -43,6 +43,20 @@ namespace RestaurantBookingAPI.Controllers
                 .GetByUserIdAsync(userId);
 
             return customer?.Id;
+        }
+
+        // Extracts the authenticated owner UserId from JWT.
+        private int? GetCurrentOwnerId()
+        {
+            var ownerIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                            ?? User.FindFirst("sub")?.Value;
+
+            if (!int.TryParse(ownerIdValue, out int id))
+            {
+                return null;
+            }
+
+            return id;
         }
 
         // GET: api/bookings
@@ -94,12 +108,45 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
+        // GET: api/bookings/my-bookings
+        // Retrieves bookings for the authenticated customer only, resolved securely from token.
+        [HttpGet("my-bookings")]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> GetMyBookings()
+        {
+            var customerId = await GetAuthenticatedCustomerIdAsync();
+
+            if (customerId == null)
+            {
+                return Unauthorized();
+            }
+
+            var bookings = await _service.GetByCustomerIdAsync(
+                customerId.Value
+            );
+
+            return ApiResponseHelper.Ok(
+                this,
+                "Customer bookings fetched successfully.",
+                bookings
+            );
+        }
+
         // GET: api/bookings/customer/1
-        // CustomerId is resolved from JWT, not trusted from the URL.
+        // Preserved for backward compatibility: supports caller sending either Customer.Id or User.Id.
         [HttpGet("customer/{customerId}")]
         [Authorize(Roles = "Customer")]
         public async Task<IActionResult> GetByCustomerId(int customerId)
         {
+            var userIdValue = User.FindFirstValue(
+                ClaimTypes.NameIdentifier
+            );
+
+            if (!int.TryParse(userIdValue, out int userId))
+            {
+                return Unauthorized();
+            }
+
             var authenticatedCustomerId =
                 await GetAuthenticatedCustomerIdAsync();
 
@@ -109,7 +156,8 @@ namespace RestaurantBookingAPI.Controllers
             }
 
             // Prevent access to another customer's booking history.
-            if (customerId != authenticatedCustomerId.Value)
+            // Accepts caller's resolved Customer.Id or caller's User.Id.
+            if (customerId != authenticatedCustomerId.Value && customerId != userId)
             {
                 return Forbid();
             }
@@ -274,27 +322,126 @@ namespace RestaurantBookingAPI.Controllers
         }
 
         // GET: api/bookings/my-restaurant-bookings
-        // Retrieves bookings only for restaurants owned by the authenticated owner.
+        // Retrieves bookings only for restaurants owned by the authenticated owner, with optional filters.
         [HttpGet("my-restaurant-bookings")]
         [Authorize(Roles = "RestaurantOwner")]
-        public async Task<IActionResult> GetMyRestaurantBookings()
+        public async Task<IActionResult> GetMyRestaurantBookings(
+            [FromQuery] int? restaurantId = null,
+            [FromQuery] string? status = null,
+            [FromQuery] DateTime? bookingDate = null,
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null)
         {
-            var ownerIdValue = User.FindFirstValue(
-                ClaimTypes.NameIdentifier
-            );
+            var ownerId = GetCurrentOwnerId();
 
-            if (!int.TryParse(ownerIdValue, out int ownerId))
+            if (ownerId == null)
             {
                 return Unauthorized();
             }
 
-            var bookings = await _service
-                .GetBookingsByRestaurantOwnerAsync(ownerId);
+            var bookings = await _service.GetBookingsByRestaurantOwnerAsync(
+                ownerId.Value,
+                restaurantId,
+                status,
+                bookingDate,
+                fromDate,
+                toDate);
 
             return ApiResponseHelper.Ok(
                 this,
                 "Restaurant bookings fetched successfully.",
                 bookings
+            );
+        }
+
+        // GET: api/bookings/my-restaurant-bookings/1
+        // Retrieves a single booking only if it belongs to a restaurant owned by the authenticated owner.
+        [HttpGet("my-restaurant-bookings/{id}")]
+        [Authorize(Roles = "RestaurantOwner")]
+        public async Task<IActionResult> GetMyRestaurantBookingById(int id)
+        {
+            var ownerId = GetCurrentOwnerId();
+
+            if (ownerId == null)
+            {
+                return Unauthorized();
+            }
+
+            var booking = await _service.GetByIdForOwnerAsync(id, ownerId.Value);
+
+            if (booking == null)
+            {
+                return ApiResponseHelper.NotFound(
+                    this,
+                    "Booking not found."
+                );
+            }
+
+            return ApiResponseHelper.Ok(
+                this,
+                "Restaurant booking fetched successfully.",
+                booking
+            );
+        }
+
+        // POST: api/bookings/1/confirm
+        // Confirms a booking for the authenticated owner's restaurant.
+        [HttpPost("{id}/confirm")]
+        [HttpPost("{id}/owner-confirm")]
+        [Authorize(Roles = "RestaurantOwner")]
+        public async Task<IActionResult> ConfirmBooking(int id)
+        {
+            var ownerId = GetCurrentOwnerId();
+
+            if (ownerId == null)
+            {
+                return Unauthorized();
+            }
+
+            var confirmed = await _service.ConfirmBookingByOwnerAsync(id, ownerId.Value);
+
+            if (!confirmed)
+            {
+                return ApiResponseHelper.NotFound(
+                    this,
+                    "Booking not found."
+                );
+            }
+
+            return ApiResponseHelper.Ok(
+                this,
+                "Booking confirmed successfully.",
+                new { id, status = "Confirmed" }
+            );
+        }
+
+        // POST: api/bookings/1/owner-cancel
+        // Cancels a booking for the authenticated owner's restaurant.
+        [HttpPost("{id}/owner-cancel")]
+        [Authorize(Roles = "RestaurantOwner")]
+        public async Task<IActionResult> OwnerCancelBooking(int id)
+        {
+            var ownerId = GetCurrentOwnerId();
+
+            if (ownerId == null)
+            {
+                return Unauthorized();
+            }
+
+            var cancelled = await _service.CancelBookingByOwnerAsync(id, ownerId.Value);
+
+            if (!cancelled)
+            {
+                return ApiResponseHelper.NotFound(
+                    this,
+                    "Booking not found."
+                );
+            }
+
+            return ApiResponseHelper.Ok(
+                this,
+                "Booking cancelled successfully.",
+                new { id, status = "Cancelled" }
             );
         }
     }

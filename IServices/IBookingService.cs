@@ -1,4 +1,4 @@
-﻿
+
 using RestaurantBookingAPI.Models;
 
 namespace RestaurantBookingAPI.IServices
@@ -51,6 +51,21 @@ namespace RestaurantBookingAPI.IServices
         // Retrieves bookings for all restaurants owned by a specific RestaurantOwner.
         // ownerId comes from the authenticated owner's JWT.
         Task<List<OwnerRestaurantBooking>>
-            GetBookingsByRestaurantOwnerAsync(int ownerId);
+            GetBookingsByRestaurantOwnerAsync(
+                int ownerId,
+                int? restaurantId = null,
+                string? status = null,
+                DateTime? bookingDate = null,
+                DateTime? fromDate = null,
+                DateTime? toDate = null);
+
+        // Retrieves a specific booking if it belongs to a restaurant owned by the authenticated owner.
+        Task<Booking?> GetByIdForOwnerAsync(int bookingId, int ownerId);
+
+        // Confirms a booking belonging to a restaurant owned by the authenticated owner.
+        Task<bool> ConfirmBookingByOwnerAsync(int bookingId, int ownerId);
+
+        // Cancels a booking belonging to a restaurant owned by the authenticated owner.
+        Task<bool> CancelBookingByOwnerAsync(int bookingId, int ownerId);
     }
 }

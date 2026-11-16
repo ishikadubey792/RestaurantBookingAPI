@@ -1,4 +1,4 @@
-﻿
+
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,15 +21,15 @@ namespace RestaurantBookingAPI.Controllers
         }
 
         // Get currently logged-in owner's ID from JWT
-        private int GetCurrentOwnerId()
+        private int? GetCurrentOwnerId()
         {
             var ownerId = User.FindFirstValue(
-                ClaimTypes.NameIdentifier);
+                ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")?.Value;
 
             if (!int.TryParse(ownerId, out int id))
             {
-                throw new UnauthorizedAccessException(
-                    "Invalid owner identity.");
+                return null;
             }
 
             return id;
@@ -76,15 +76,35 @@ namespace RestaurantBookingAPI.Controllers
         }
 
         // ==========================================
-        // ADMIN ONLY APIs
+        // RESTAURANT MANAGEMENT APIs (Admin & Owner)
         // ==========================================
 
         // POST: api/restaurants
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "RestaurantOwner,Admin")]
         [HttpPost]
         public async Task<IActionResult> Create(
             [FromBody] Restaurant restaurant)
         {
+            if (User.IsInRole("RestaurantOwner"))
+            {
+                var ownerId = GetCurrentOwnerId();
+                if (ownerId == null)
+                {
+                    return Unauthorized();
+                }
+
+                restaurant.OwnerUserId = ownerId.Value;
+
+                var createdForOwner =
+                    await _service.CreateMyRestaurantAsync(restaurant, ownerId.Value);
+
+                return ApiResponseHelper.Ok(
+                    this,
+                    "Restaurant created successfully.",
+                    createdForOwner
+                );
+            }
+
             var createdRestaurant =
                 await _service.CreateAsync(restaurant);
 
@@ -96,12 +116,38 @@ namespace RestaurantBookingAPI.Controllers
         }
 
         // PUT: api/restaurants/4004
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "RestaurantOwner,Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(
             int id,
             [FromBody] Restaurant restaurant)
         {
+            if (User.IsInRole("RestaurantOwner"))
+            {
+                var ownerId = GetCurrentOwnerId();
+                if (ownerId == null)
+                {
+                    return Unauthorized();
+                }
+
+                var ownerUpdated =
+                    await _service.UpdateMyRestaurantAsync(id, ownerId.Value, restaurant);
+
+                if (!ownerUpdated)
+                {
+                    return ApiResponseHelper.NotFound(
+                        this,
+                        "Restaurant not found."
+                    );
+                }
+
+                return ApiResponseHelper.Ok<object>(
+                    this,
+                    "Restaurant updated successfully.",
+                    (object?)null
+                );
+            }
+
             var updated =
                 await _service.UpdateAsync(id, restaurant);
 
@@ -146,15 +192,43 @@ namespace RestaurantBookingAPI.Controllers
         // RESTAURANT OWNER APIs
         // ==========================================
 
+        // POST: api/restaurants/my-restaurants
+        [Authorize(Roles = "RestaurantOwner")]
+        [HttpPost("my-restaurants")]
+        public async Task<IActionResult> CreateMyRestaurant(
+            [FromBody] Restaurant restaurant)
+        {
+            var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
+            {
+                return Unauthorized();
+            }
+
+            restaurant.OwnerUserId = ownerId.Value;
+
+            var createdRestaurant =
+                await _service.CreateMyRestaurantAsync(restaurant, ownerId.Value);
+
+            return ApiResponseHelper.Ok(
+                this,
+                "Restaurant created successfully.",
+                createdRestaurant
+            );
+        }
+
         // GET: api/restaurants/my-restaurants
         [Authorize(Roles = "RestaurantOwner")]
         [HttpGet("my-restaurants")]
         public async Task<IActionResult> GetMyRestaurants()
         {
             var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
+            {
+                return Unauthorized();
+            }
 
             var restaurants =
-                await _service.GetMyRestaurantsAsync(ownerId);
+                await _service.GetMyRestaurantsAsync(ownerId.Value);
 
             return ApiResponseHelper.Ok(
                 this,
@@ -169,11 +243,15 @@ namespace RestaurantBookingAPI.Controllers
         public async Task<IActionResult> GetMyRestaurantById(int id)
         {
             var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
+            {
+                return Unauthorized();
+            }
 
             var restaurant =
                 await _service.GetMyRestaurantByIdAsync(
                     id,
-                    ownerId
+                    ownerId.Value
                 );
 
             if (restaurant == null)
@@ -199,11 +277,15 @@ namespace RestaurantBookingAPI.Controllers
             [FromBody] Restaurant restaurant)
         {
             var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
+            {
+                return Unauthorized();
+            }
 
             var updated =
                 await _service.UpdateMyRestaurantAsync(
                     id,
-                    ownerId,
+                    ownerId.Value,
                     restaurant
                 );
 
@@ -228,11 +310,15 @@ namespace RestaurantBookingAPI.Controllers
         public async Task<IActionResult> DeleteMyRestaurant(int id)
         {
             var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
+            {
+                return Unauthorized();
+            }
 
             var deleted =
                 await _service.DeleteMyRestaurantAsync(
                     id,
-                    ownerId
+                    ownerId.Value
                 );
 
             if (!deleted)

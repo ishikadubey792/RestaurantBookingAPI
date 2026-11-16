@@ -16,8 +16,9 @@ namespace RestaurantBookingAPI.Services
         private readonly ILogger<BookingService> _logger;
         private readonly BookingValidator _validator;
         private readonly CheckAvailabilityValidator _availabilityValidator;
+        private readonly IRestaurantRepository? _restaurantRepository;
 
-        // Constructor: Injects all required repositories, validators and logger.
+        // Backward-compatible constructor for existing test suites
         public BookingService(
             IBookingRepository bookingRepository,
             ICustomerRepository customerRepository,
@@ -26,6 +27,28 @@ namespace RestaurantBookingAPI.Services
             ILogger<BookingService> logger,
             BookingValidator validator,
             CheckAvailabilityValidator availabilityValidator)
+            : this(
+                bookingRepository,
+                customerRepository,
+                tableRepository,
+                operatingHourRepository,
+                logger,
+                validator,
+                availabilityValidator,
+                null)
+        {
+        }
+
+        // Full constructor with restaurant repository for ownership validation
+        public BookingService(
+            IBookingRepository bookingRepository,
+            ICustomerRepository customerRepository,
+            IRestaurantTableRepository tableRepository,
+            IOperatingHourRepository operatingHourRepository,
+            ILogger<BookingService> logger,
+            BookingValidator validator,
+            CheckAvailabilityValidator availabilityValidator,
+            IRestaurantRepository? restaurantRepository)
         {
             _bookingRepository = bookingRepository;
             _customerRepository = customerRepository;
@@ -34,6 +57,7 @@ namespace RestaurantBookingAPI.Services
             _logger = logger;
             _validator = validator;
             _availabilityValidator = availabilityValidator;
+            _restaurantRepository = restaurantRepository;
         }
 
         // Retrieves all bookings.
@@ -364,13 +388,97 @@ namespace RestaurantBookingAPI.Services
             return await _bookingRepository.DeleteAsync(id);
         }
 
-        // Retrieves bookings belonging to restaurants owned by a specific RestaurantOwner.
-        // Owner filtering is handled by the repository.
+        // Retrieves bookings belonging to restaurants owned by a specific RestaurantOwner with optional filters.
         public async Task<List<OwnerRestaurantBooking>>
-            GetBookingsByRestaurantOwnerAsync(int ownerId)
+            GetBookingsByRestaurantOwnerAsync(
+                int ownerId,
+                int? restaurantId = null,
+                string? status = null,
+                DateTime? bookingDate = null,
+                DateTime? fromDate = null,
+                DateTime? toDate = null)
+        {
+            if (restaurantId.HasValue && _restaurantRepository != null)
+            {
+                var restaurant = await _restaurantRepository
+                    .GetByIdAndOwnerIdAsync(restaurantId.Value, ownerId);
+
+                if (restaurant == null)
+                {
+                    throw new BadRequestException(
+                        "Restaurant not found or you do not have permission to access its bookings.");
+                }
+            }
+
+            return await _bookingRepository
+                .GetBookingsByRestaurantOwnerAsync(
+                    ownerId,
+                    restaurantId,
+                    status,
+                    bookingDate,
+                    fromDate,
+                    toDate);
+        }
+
+        public async Task<Booking?> GetByIdForOwnerAsync(int bookingId, int ownerId)
         {
             return await _bookingRepository
-                .GetBookingsByRestaurantOwnerAsync(ownerId);
+                .GetByIdAndOwnerIdAsync(bookingId, ownerId);
+        }
+
+        public async Task<bool> ConfirmBookingByOwnerAsync(int bookingId, int ownerId)
+        {
+            var booking = await _bookingRepository
+                .GetByIdAndOwnerIdAsync(bookingId, ownerId);
+
+            if (booking == null)
+            {
+                throw new NotFoundException("Booking not found.");
+            }
+
+            if (string.Equals(booking.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BadRequestException(
+                    "A cancelled booking cannot be modified or confirmed.");
+            }
+
+            if (string.Equals(booking.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BadRequestException(
+                    "A completed booking cannot be modified or confirmed.");
+            }
+
+            if (string.Equals(booking.Status, "Confirmed", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            booking.Status = "Confirmed";
+            return await _bookingRepository.UpdateAsync(booking);
+        }
+
+        public async Task<bool> CancelBookingByOwnerAsync(int bookingId, int ownerId)
+        {
+            var booking = await _bookingRepository
+                .GetByIdAndOwnerIdAsync(bookingId, ownerId);
+
+            if (booking == null)
+            {
+                throw new NotFoundException("Booking not found.");
+            }
+
+            if (string.Equals(booking.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BadRequestException(
+                    "A completed booking cannot be cancelled.");
+            }
+
+            if (string.Equals(booking.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return await _bookingRepository.CancelAsync(bookingId);
         }
     }
 }

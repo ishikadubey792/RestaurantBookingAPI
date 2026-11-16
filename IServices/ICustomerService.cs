@@ -1,4 +1,4 @@
-﻿using RestaurantBookingAPI.Models;
+using RestaurantBookingAPI.Models;
 
 namespace RestaurantBookingAPI.IServices
 {
@@ -6,6 +6,7 @@ namespace RestaurantBookingAPI.IServices
     {
         Task<List<Customer>> GetAllAsync();
         Task<Customer?> GetByIdAsync(int id);
+        Task<Customer?> GetByUserIdAsync(int userId);
         Task<Customer> CreateAsync(Customer customer);
         Task<bool> UpdateAsync(int id, Customer customer);
         Task<bool> DeleteAsync(int id);

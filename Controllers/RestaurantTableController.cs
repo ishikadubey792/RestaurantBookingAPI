@@ -1,4 +1,4 @@
-﻿
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -20,8 +20,22 @@ namespace RestaurantBookingAPI.Controllers
             _service = service;
         }
 
-        // Existing read endpoint - unchanged
+        private int? GetCurrentOwnerId()
+        {
+            var ownerIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                            ?? User.FindFirst("sub")?.Value;
+
+            if (!int.TryParse(ownerIdValue, out int id))
+            {
+                return null;
+            }
+
+            return id;
+        }
+
+        // Restrict global table listing to Admin
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAll()
         {
             var tables = await _service.GetAllAsync();
@@ -33,8 +47,9 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
-        // Existing read endpoint - unchanged
+        // Public read endpoint for table details
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(int id)
         {
             var table = await _service.GetByIdAsync(id);
@@ -54,8 +69,9 @@ namespace RestaurantBookingAPI.Controllers
             );
         }
 
-        // Existing read endpoint - unchanged
+        // Public read endpoint for restaurant tables
         [HttpGet("restaurant/{restaurantId}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetByRestaurantId(
             int restaurantId)
         {
@@ -75,16 +91,14 @@ namespace RestaurantBookingAPI.Controllers
         public async Task<IActionResult> Create(
             [FromBody] RestaurantTable table)
         {
-            var ownerIdValue =
-                User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(ownerIdValue, out int ownerId))
+            var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
             {
                 return Unauthorized();
             }
 
             var createdTable =
-                await _service.CreateAsync(table, ownerId);
+                await _service.CreateAsync(table, ownerId.Value);
 
             return ApiResponseHelper.Ok(
                 this,
@@ -100,16 +114,14 @@ namespace RestaurantBookingAPI.Controllers
             int id,
             [FromBody] RestaurantTable table)
         {
-            var ownerIdValue =
-                User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(ownerIdValue, out int ownerId))
+            var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
             {
                 return Unauthorized();
             }
 
             var updated =
-                await _service.UpdateAsync(id, table, ownerId);
+                await _service.UpdateAsync(id, table, ownerId.Value);
 
             if (!updated)
             {
@@ -131,16 +143,14 @@ namespace RestaurantBookingAPI.Controllers
         [Authorize(Roles = "RestaurantOwner")]
         public async Task<IActionResult> Delete(int id)
         {
-            var ownerIdValue =
-                User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(ownerIdValue, out int ownerId))
+            var ownerId = GetCurrentOwnerId();
+            if (ownerId == null)
             {
                 return Unauthorized();
             }
 
             var deleted =
-                await _service.DeleteAsync(id, ownerId);
+                await _service.DeleteAsync(id, ownerId.Value);
 
             if (!deleted)
             {
