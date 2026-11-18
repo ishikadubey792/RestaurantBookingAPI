@@ -1,10 +1,11 @@
-﻿using System.Text.RegularExpressions;
+﻿
 using RestaurantBookingAPI.Exceptions;
 using RestaurantBookingAPI.IRepository;
+using RestaurantBookingAPI.IServices;
 using RestaurantBookingAPI.Models;
 using RestaurantBookingAPI.Repositories;
 using RestaurantBookingAPI.Security;
-using RestaurantBookingAPI.IServices;
+using System.Text.RegularExpressions;
 
 namespace RestaurantBookingAPI.Services
 {
@@ -15,28 +16,27 @@ namespace RestaurantBookingAPI.Services
         private readonly ICuisineRepository _cuisineRepository;
         private readonly IRestaurantOwnerRegistrationRepository _registrationRepository;
         private readonly PasswordService _passwordService;
-        private readonly IWebHostEnvironment _environment;
-
-        private const long MaxFileSize = 5 * 1024 * 1024;
+        private readonly IImageStorageService _imageStorageService;
 
         public RestaurantOwnerRegistrationService(
             IUserRepository userRepository,
             ICuisineRepository cuisineRepository,
             IRestaurantOwnerRegistrationRepository registrationRepository,
             PasswordService passwordService,
-            IWebHostEnvironment environment)
+            IImageStorageService imageStorageService)
         {
+            // Inject repositories and services required for owner registration.
             _userRepository = userRepository;
             _cuisineRepository = cuisineRepository;
             _registrationRepository = registrationRepository;
             _passwordService = passwordService;
-            _environment = environment;
+            _imageStorageService = imageStorageService;
         }
 
         public async Task<(User User, Restaurant Restaurant)> RegisterAsync(
             RestaurantOwnerRegisterRequest request)
         {
-            // 1. Validate password
+            // 1. Validate password before creating the owner account.
             if (!IsPasswordValid(request.Password))
             {
                 throw new BadRequestException(
@@ -44,7 +44,7 @@ namespace RestaurantBookingAPI.Services
                 );
             }
 
-            // 2. Check duplicate email
+            // 2. Check whether the owner's email is already registered.
             var email = request.OwnerEmail.Trim();
 
             var existingUser =
@@ -57,7 +57,7 @@ namespace RestaurantBookingAPI.Services
                 );
             }
 
-            // 3. Validate selected cuisines
+            // 3. Validate selected cuisines and prevent duplicate selections.
             var cuisineIds = request.CuisineIds.Distinct().ToList();
 
             if (cuisineIds.Count != request.CuisineIds.Count)
@@ -77,7 +77,7 @@ namespace RestaurantBookingAPI.Services
                 );
             }
 
-            // 4. Validate cover image
+            // 4. Ensure that the restaurant cover image is provided.
             var image = request.CoverImage;
 
             if (image == null || image.Length == 0)
@@ -87,24 +87,7 @@ namespace RestaurantBookingAPI.Services
                 );
             }
 
-            if (image.Length > MaxFileSize)
-            {
-                throw new BadRequestException(
-                    "Cover image size must not exceed 5 MB."
-                );
-            }
-
-            // 5. Validate image content
-            var extension = await GetValidImageExtensionAsync(image);
-
-            if (extension == null)
-            {
-                throw new BadRequestException(
-                    "Only valid JPG, PNG and WEBP images are allowed."
-                );
-            }
-
-            // 6. Create owner account
+            // 5. Create the owner account with a securely hashed password.
             var user = new User
             {
                 Name = request.OwnerName.Trim(),
@@ -117,7 +100,7 @@ namespace RestaurantBookingAPI.Services
             user.PasswordHash =
                 _passwordService.HashPassword(user, request.Password);
 
-            // 7. Prepare restaurant
+            // 6. Prepare the restaurant entity.
             var restaurant = new Restaurant
             {
                 Name = request.RestaurantName.Trim(),
@@ -129,35 +112,20 @@ namespace RestaurantBookingAPI.Services
                 IsActive = true
             };
 
-            // 8. Save image with a unique filename
-            var webRoot = _environment.WebRootPath
-                ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-
-            var uploadFolder = Path.Combine(
-                webRoot,
-                "uploads",
-                "restaurants"
-            );
-
-            Directory.CreateDirectory(uploadFolder);
-
-            var fileName = $"{Guid.NewGuid()}{extension}";
-            var filePath = Path.Combine(uploadFolder, fileName);
+            string? savedImagePath = null;
 
             try
             {
-                await using (var stream = new FileStream(
-                    filePath,
-                    FileMode.CreateNew,
-                    FileAccess.Write))
-                {
-                    await image.CopyToAsync(stream);
-                }
+                // 7. Validate and save the cover image using the common storage service.
+                savedImagePath = await _imageStorageService.SaveImageAsync(
+                    image,
+                    "restaurants"
+                );
 
-                restaurant.CoverImagePath =
-                    $"/uploads/restaurants/{fileName}";
+                // Store the relative image URL in the restaurant entity.
+                restaurant.CoverImagePath = savedImagePath;
 
-                // 9. Save User, Restaurant and Cuisine mappings
+                // 8. Save owner, restaurant and cuisine mappings in the database.
                 var registeredRestaurant =
                     await _registrationRepository.RegisterAsync(
                         user,
@@ -165,20 +133,25 @@ namespace RestaurantBookingAPI.Services
                         cuisineIds
                     );
 
+                // Return the successfully registered owner and restaurant.
                 return (user, registeredRestaurant);
             }
             catch
             {
-                // Remove uploaded image if database registration fails
-                if (File.Exists(filePath))
+                // 9. Remove the uploaded image if database registration fails.
+                if (!string.IsNullOrWhiteSpace(savedImagePath))
                 {
-                    File.Delete(filePath);
+                    await _imageStorageService.DeleteImageAsync(
+                        savedImagePath
+                    );
                 }
 
+                // Re-throw the original exception for centralized error handling.
                 throw;
             }
         }
 
+        // Checks whether the password meets the required security rules.
         private static bool IsPasswordValid(string password)
         {
             return !string.IsNullOrEmpty(password)
@@ -188,64 +161,6 @@ namespace RestaurantBookingAPI.Services
                     password,
                     @"^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])\S{8,128}$"
                 );
-        }
-
-        private static async Task<string?> GetValidImageExtensionAsync(
-            IFormFile image)
-        {
-            var extension = Path.GetExtension(image.FileName)
-                .ToLowerInvariant();
-
-            if (extension is not ".jpg" and not ".jpeg"
-                and not ".png" and not ".webp")
-            {
-                return null;
-            }
-
-            byte[] header = new byte[12];
-
-            await using var stream = image.OpenReadStream();
-
-            int bytesRead = await stream.ReadAsync(
-                header.AsMemory(0, header.Length)
-            );
-
-            bool isJpeg =
-                bytesRead >= 3 &&
-                header[0] == 0xFF &&
-                header[1] == 0xD8 &&
-                header[2] == 0xFF;
-
-            bool isPng =
-                bytesRead >= 8 &&
-                header[0] == 0x89 &&
-                header[1] == 0x50 &&
-                header[2] == 0x4E &&
-                header[3] == 0x47 &&
-                header[4] == 0x0D &&
-                header[5] == 0x0A &&
-                header[6] == 0x1A &&
-                header[7] == 0x0A;
-
-            bool isWebp =
-                bytesRead >= 12 &&
-                header[0] == 'R' &&
-                header[1] == 'I' &&
-                header[2] == 'F' &&
-                header[3] == 'F' &&
-                header[8] == 'W' &&
-                header[9] == 'E' &&
-                header[10] == 'B' &&
-                header[11] == 'P';
-
-            if ((isJpeg && extension is ".jpg" or ".jpeg") ||
-                (isPng && extension == ".png") ||
-                (isWebp && extension == ".webp"))
-            {
-                return extension;
-            }
-
-            return null;
         }
     }
 }

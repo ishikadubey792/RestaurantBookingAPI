@@ -25,10 +25,18 @@
         // Navigation properties
         public User? Owner { get; set; }
 
+        // Stores all gallery images associated with this restaurant.
         public ICollection<RestaurantImage> Images { get; set; }
             = new List<RestaurantImage>();
 
+
+        // Stores all menu images associated with this restaurant.
+        public ICollection<MenuImage> MenuImages { get; set; }
+            = new List<MenuImage>();
+
+        // Stores all cuisine mappings associated with this restaurant.
         public ICollection<RestaurantCuisine> RestaurantCuisines { get; set; }
             = new List<RestaurantCuisine>();
+        
     }
 }

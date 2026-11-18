@@ -38,6 +38,18 @@ namespace RestaurantBookingAPI.Middleware
                     StatusCodes.Status400BadRequest,
                     ex.Message);
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                // Log unauthorized resource access attempts.
+                _logger.LogWarning(
+                    ex,
+                    "Unauthorized access attempt detected.");
+
+                await WriteErrorResponse(
+                    context,
+                    StatusCodes.Status403Forbidden,
+                    "You are not authorized to perform this action.");
+            }
             catch (BookingConflictException ex)
             {
                 await WriteErrorResponse(

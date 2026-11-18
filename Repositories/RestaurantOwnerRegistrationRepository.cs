@@ -49,7 +49,18 @@ namespace RestaurantBookingAPI.Repositories
                 await _context.Restaurants.AddAsync(restaurant);
                 await _context.SaveChangesAsync();
 
-                // 3. Create restaurant-cuisine mappings
+                // 3. Add the registration cover image to the restaurant gallery.
+                var restaurantImage = new RestaurantImage
+                {
+                    RestaurantId = restaurant.Id,
+                    ImagePath = restaurant.CoverImagePath!,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _context.RestaurantImages.AddAsync(restaurantImage);
+                await _context.SaveChangesAsync();
+
+                // 4. Create restaurant-cuisine mappings
                 var mappings = cuisineIds.Select(cuisineId =>
                     new RestaurantCuisine
                     {
@@ -60,7 +71,7 @@ namespace RestaurantBookingAPI.Repositories
                 await _context.RestaurantCuisines.AddRangeAsync(mappings);
                 await _context.SaveChangesAsync();
 
-                // 4. Commit transaction
+                // 5. Commit transaction
                 await transaction.CommitAsync();
 
                 return restaurant;

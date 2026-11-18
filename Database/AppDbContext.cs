@@ -30,6 +30,9 @@ namespace RestaurantBookingAPI.Data
 
         public DbSet<RestaurantImage> RestaurantImages { get; set; }
 
+        // Provides access to restaurant menu images in the database.
+        public DbSet<MenuImage> MenuImages { get; set; }
+
         public DbSet<Cuisine> Cuisines { get; set; }
 
         public DbSet<RestaurantCuisine> RestaurantCuisines { get; set; }
@@ -127,6 +130,17 @@ namespace RestaurantBookingAPI.Data
                 .HasOne(i => i.Restaurant)
                 .WithMany(r => r.Images)
                 .HasForeignKey(i => i.RestaurantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+
+            // Restaurant → Menu Images
+            modelBuilder.Entity<MenuImage>()
+                .ToTable("MenuImage");
+
+            modelBuilder.Entity<MenuImage>()
+                .HasOne(m => m.Restaurant)
+                .WithMany(r => r.MenuImages)
+                .HasForeignKey(m => m.RestaurantId)
                 .OnDelete(DeleteBehavior.Cascade);
 
 

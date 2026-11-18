@@ -21,6 +21,20 @@ namespace RestaurantBookingAPI
         {
             var builder = WebApplication.CreateBuilder(args);
 
+
+            // Configure maximum HTTP request body size for image uploads.
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.Limits.MaxRequestBodySize = 10 * 1024 * 1024; // 10 MB
+            });
+
+            // Configure multipart form data limits.
+            builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(
+                options =>
+                {
+                    options.MultipartBodyLengthLimit = 10 * 1024 * 1024; // 10 MB
+                });
+
             builder.Logging.ClearProviders();
             builder.Logging.AddConsole();
             builder.Logging.AddDebug();
@@ -79,6 +93,17 @@ namespace RestaurantBookingAPI
             // Owner Dashboard
             builder.Services.AddScoped<IOwnerDashboardRepository, OwnerDashboardRepository>();
             builder.Services.AddScoped<IOwnerDashboardService, OwnerDashboardService>();
+
+            // Image Storage Service
+            builder.Services.AddScoped<IImageStorageService, ImageStorageService>();
+
+
+            // Restaurant Media Repository
+            builder.Services.AddScoped<IRestaurantMediaRepository, RestaurantMediaRepository>();
+
+
+            // Restaurant Media Service
+            builder.Services.AddScoped<IRestaurantMediaService, RestaurantMediaService>();
 
             // JWT Authentication
             var jwtKey = builder.Configuration["Jwt:Key"]
