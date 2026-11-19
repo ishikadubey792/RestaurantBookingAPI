@@ -78,9 +78,17 @@ namespace RestaurantBookingAPI.Services
             return await _repository.UpdateAsync(existingRestaurant);
         }
 
+        // Soft-deletes a restaurant for an authorized admin.
         public async Task<bool> DeleteAsync(int id)
         {
-            return await _repository.DeleteAsync(id);
+            var existingRestaurant = await _repository.GetByIdAsync(id);
+
+            if (existingRestaurant == null || !existingRestaurant.IsActive)
+            {
+                return false;
+            }
+
+            return await _repository.SoftDeleteAsync(id);
         }
 
         public async Task<Restaurant> CreateMyRestaurantAsync(
@@ -119,9 +127,9 @@ namespace RestaurantBookingAPI.Services
         }
 
         public async Task<bool> UpdateMyRestaurantAsync(
-    int restaurantId,
-    int ownerUserId,
-    Restaurant restaurant)
+            int restaurantId,
+            int ownerUserId,
+            Restaurant restaurant)
         {
             var existingRestaurant =
                 await _repository.GetByIdAndOwnerIdAsync(
@@ -163,6 +171,7 @@ namespace RestaurantBookingAPI.Services
         }
 
 
+        // Soft-deletes a restaurant after verifying its ownership.
         public async Task<bool> DeleteMyRestaurantAsync(
             int restaurantId,
             int ownerUserId)
@@ -173,12 +182,15 @@ namespace RestaurantBookingAPI.Services
                     ownerUserId
                 );
 
-            if (existingRestaurant == null)
+            if (existingRestaurant == null || !existingRestaurant.IsActive)
             {
                 return false;
             }
 
-            return await _repository.DeleteAsync(restaurantId);
+            return await _repository.SoftDeleteAsync(
+                restaurantId,
+                ownerUserId
+            );
         }
     }
 }

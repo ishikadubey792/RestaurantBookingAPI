@@ -12,7 +12,12 @@ namespace RestaurantBookingAPI.IRepository
 
         Task<bool> UpdateAsync(Restaurant restaurant);
 
-        Task<bool> DeleteAsync(int id);
+        // Marks a restaurant as inactive without deleting its related records.
+        Task<bool> SoftDeleteAsync(int id, int ownerUserId);
+
+
+        // Marks a restaurant as inactive without owner-specific filtering.
+        Task<bool> SoftDeleteAsync(int id);
 
         Task<List<Restaurant>> GetByOwnerIdAsync(int ownerUserId);
 

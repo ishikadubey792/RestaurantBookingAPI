@@ -72,16 +72,22 @@ namespace RestaurantBookingAPI.Repositories
             return restaurants.Any();
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        // Marks the owner's restaurant as inactive without deleting related records.
+        public async Task<bool> SoftDeleteAsync(int id, int ownerUserId)
         {
-            var result = await _context.Database
-                .SqlQueryRaw<int>(
-                    "EXEC dbo.DeleteRestaurant @Id = {0}", id)
-                .ToListAsync();
+            var affectedRows = await _context.Restaurants
+                .Where(r =>
+                    r.Id == id &&
+                    r.OwnerUserId == ownerUserId &&
+                    r.IsActive)
+                .ExecuteUpdateAsync(setters =>
+                    setters.SetProperty(r => r.IsActive, false));
 
-            return result.FirstOrDefault() > 0;
+            return affectedRows > 0;
         }
 
+        // Returns only active restaurants belonging to the specified owner.
+        // Returns all restaurants owned by the user, including inactive ones.
         public async Task<List<Restaurant>> GetByOwnerIdAsync(int ownerUserId)
         {
             return await _context.Restaurants
@@ -99,6 +105,18 @@ namespace RestaurantBookingAPI.Repositories
                 .FirstOrDefaultAsync(r =>
                     r.Id == restaurantId &&
                     r.OwnerUserId == ownerUserId);
+        }
+
+
+        // Soft-deletes a restaurant when requested by an authorized admin.
+        public async Task<bool> SoftDeleteAsync(int id)
+        {
+            var affectedRows = await _context.Restaurants
+                .Where(r => r.Id == id && r.IsActive)
+                .ExecuteUpdateAsync(setters =>
+                    setters.SetProperty(r => r.IsActive, false));
+
+            return affectedRows > 0;
         }
     }
 }
