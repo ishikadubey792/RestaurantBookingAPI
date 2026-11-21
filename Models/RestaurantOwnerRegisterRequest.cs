@@ -58,5 +58,17 @@ namespace RestaurantBookingAPI.Models
 
         [Required]
         public IFormFile? CoverImage { get; set; }
+
+
+        // Terms and Conditions acceptance
+
+        [Required(ErrorMessage = "You must accept the Terms and Conditions.")]
+        [Range(typeof(bool), "true", "true",
+            ErrorMessage = "You must accept the Terms and Conditions.")]
+        public bool AcceptedTerms { get; set; }
+
+        [Range(1, int.MaxValue,
+            ErrorMessage = "A valid Terms and Conditions document is required.")]
+        public int LegalDocumentId { get; set; }
     }
 }

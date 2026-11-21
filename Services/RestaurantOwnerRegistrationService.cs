@@ -18,12 +18,17 @@ namespace RestaurantBookingAPI.Services
         private readonly PasswordService _passwordService;
         private readonly IImageStorageService _imageStorageService;
 
+        private readonly ILegalDocumentRepository _legalDocumentRepository;
+        private readonly IUserLegalAcceptanceRepository _userLegalAcceptanceRepository;
+
         public RestaurantOwnerRegistrationService(
             IUserRepository userRepository,
             ICuisineRepository cuisineRepository,
             IRestaurantOwnerRegistrationRepository registrationRepository,
             PasswordService passwordService,
-            IImageStorageService imageStorageService)
+            IImageStorageService imageStorageService,
+            ILegalDocumentRepository legalDocumentRepository,
+            IUserLegalAcceptanceRepository userLegalAcceptanceRepository)
         {
             // Inject repositories and services required for owner registration.
             _userRepository = userRepository;
@@ -31,6 +36,8 @@ namespace RestaurantBookingAPI.Services
             _registrationRepository = registrationRepository;
             _passwordService = passwordService;
             _imageStorageService = imageStorageService;
+            _legalDocumentRepository = legalDocumentRepository;
+            _userLegalAcceptanceRepository = userLegalAcceptanceRepository;
         }
 
         public async Task<(User User, Restaurant Restaurant)> RegisterAsync(
@@ -41,6 +48,36 @@ namespace RestaurantBookingAPI.Services
             {
                 throw new BadRequestException(
                     "Password must be 8-128 characters long and contain uppercase, lowercase, number and special character. Spaces are not allowed."
+                );
+            }
+
+
+            // 2. Validate Terms and Conditions acceptance.
+            if (!request.AcceptedTerms)
+            {
+                throw new BadRequestException(
+                    "You must accept the Terms and Conditions."
+                );
+            }
+
+            // Fetch the currently active Terms and Conditions document.
+            var activeTerms =
+                await _legalDocumentRepository.GetActiveDocumentAsync(
+                    "TermsAndConditions"
+                );
+
+            if (activeTerms == null)
+            {
+                throw new BadRequestException(
+                    "Terms and Conditions are currently unavailable."
+                );
+            }
+
+            // Ensure that the owner accepted the currently active version.
+            if (activeTerms.Id != request.LegalDocumentId)
+            {
+                throw new BadRequestException(
+                    "Terms and Conditions have been updated. Please review and accept the latest version."
                 );
             }
 
@@ -130,7 +167,8 @@ namespace RestaurantBookingAPI.Services
                     await _registrationRepository.RegisterAsync(
                         user,
                         restaurant,
-                        cuisineIds
+                        cuisineIds,
+                        activeTerms.Id
                     );
 
                 // Return the successfully registered owner and restaurant.

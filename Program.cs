@@ -57,6 +57,15 @@ namespace RestaurantBookingAPI
             builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
             builder.Services.AddScoped<IOperatingHourRepository, OperatingHourRepository>();
 
+
+            // Legal Documents
+            builder.Services.AddScoped<ILegalDocumentRepository, LegalDocumentRepository>();
+
+            // User Legal Acceptances
+            builder.Services.AddScoped<
+                IUserLegalAcceptanceRepository,
+                UserLegalAcceptanceRepository>();
+
             // Service registrations
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IRestaurantService, RestaurantService>();
@@ -65,6 +74,9 @@ namespace RestaurantBookingAPI
             builder.Services.AddScoped<IBookingService, BookingService>();
             builder.Services.AddScoped<IOperatingHourService, OperatingHourService>();
             builder.Services.AddScoped<IEmailService, EmailService>();
+
+            // Legal Document Service
+            builder.Services.AddScoped<ILegalDocumentService, LegalDocumentService>();
 
             // Validators
             builder.Services.AddScoped<RestaurantValidator>();

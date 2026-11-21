@@ -18,7 +18,8 @@ namespace RestaurantBookingAPI.Repositories
         public async Task<Restaurant> RegisterAsync(
             User user,
             Restaurant restaurant,
-            List<int> cuisineIds)
+            List<int> cuisineIds,
+            int legalDocumentId)
         {
 
             if (cuisineIds == null || cuisineIds.Count == 0)
@@ -71,7 +72,18 @@ namespace RestaurantBookingAPI.Repositories
                 await _context.RestaurantCuisines.AddRangeAsync(mappings);
                 await _context.SaveChangesAsync();
 
-                // 5. Commit transaction
+                // 5. Save owner's Terms and Conditions acceptance.
+                var legalAcceptance = new UserLegalAcceptance
+                {
+                    UserId = user.Id,
+                    LegalDocumentId = legalDocumentId,
+                    AcceptedAt = DateTime.UtcNow
+                };
+
+                await _context.UserLegalAcceptances.AddAsync(legalAcceptance);
+                await _context.SaveChangesAsync();
+
+                // 6. Commit transaction
                 await transaction.CommitAsync();
 
                 return restaurant;

@@ -7,7 +7,8 @@ namespace RestaurantBookingAPI.Repositories
         Task<Restaurant> RegisterAsync(
             User user,
             Restaurant restaurant,
-            List<int> cuisineIds
+            List<int> cuisineIds,
+            int legalDocumentId
         );
     }
 }

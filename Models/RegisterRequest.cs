@@ -21,5 +21,15 @@ namespace RestaurantBookingAPI.Models
             @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9\s])\S{8,}$",
             ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character. Spaces are not allowed.")]
         public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "You must accept the Terms and Conditions.")]
+        [Range(typeof(bool), "true", "true",
+    ErrorMessage = "You must accept the Terms and Conditions.")]
+        public bool AcceptedTerms { get; set; }
+
+        [Required]
+        [Range(1, int.MaxValue,
+            ErrorMessage = "A valid Terms and Conditions document is required.")]
+        public int LegalDocumentId { get; set; }
     }
 }

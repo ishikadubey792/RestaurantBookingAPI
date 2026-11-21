@@ -5,7 +5,11 @@ namespace RestaurantBookingAPI.IServices
 {
     public interface IUserService
     {
-        Task<User> RegisterAsync(User user, string password);
+        Task<User> RegisterAsync(
+                User user,
+                string password,
+                int legalDocumentId,
+                bool acceptedTerms);
 
         Task<User?> LoginAsync(LoginRequest request);
 

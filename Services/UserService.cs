@@ -7,6 +7,7 @@ using RestaurantBookingAPI.Security;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using RestaurantBookingAPI.Data;
 
 namespace RestaurantBookingAPI.Services
 {
@@ -23,6 +24,10 @@ namespace RestaurantBookingAPI.Services
         private readonly ILogger<UserService> _logger;
         private readonly IEmailService _emailService;
 
+        private readonly AppDbContext _context;
+        private readonly ILegalDocumentRepository _legalDocumentRepository;
+        private readonly IUserLegalAcceptanceRepository _userLegalAcceptanceRepository;
+
         public UserService(
             IUserRepository userRepository,
             ICustomerRepository customerRepository,
@@ -30,7 +35,10 @@ namespace RestaurantBookingAPI.Services
             PasswordService passwordService,
             IWebHostEnvironment environment,
             ILogger<UserService> logger,
-            IEmailService emailService)
+            IEmailService emailService,
+            AppDbContext context,
+            ILegalDocumentRepository legalDocumentRepository,
+            IUserLegalAcceptanceRepository userLegalAcceptanceRepository)
         {
             _userRepository = userRepository;
             _customerRepository = customerRepository;
@@ -39,6 +47,9 @@ namespace RestaurantBookingAPI.Services
             _environment = environment;
             _logger = logger;
             _emailService = emailService;
+            _context = context;
+            _legalDocumentRepository = legalDocumentRepository;
+            _userLegalAcceptanceRepository = userLegalAcceptanceRepository;
         }
 
         private static bool IsPasswordValid(string password)
@@ -62,16 +73,41 @@ namespace RestaurantBookingAPI.Services
 
 
         public async Task<User> RegisterAsync(
-            User user,
-            string password)
+    User user,
+    string password,
+    int legalDocumentId,
+    bool acceptedTerms)
         {
+            // 1. Validate password.
             if (!IsPasswordValid(password))
             {
                 throw new BadRequestException(
-                    "Password must be 8-30 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character. Spaces are not allowed."
+                    "Password must be 8-128 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character. Spaces are not allowed."
                 );
             }
 
+            // 2. Validate explicit Terms acceptance.
+            if (!acceptedTerms)
+            {
+                throw new BadRequestException(
+                    "You must accept the Terms and Conditions to register."
+                );
+            }
+
+            // 3. Verify that the submitted document is currently active.
+            var activeTerms =
+                await _legalDocumentRepository.GetActiveDocumentAsync(
+                    "TermsAndConditions");
+
+            if (activeTerms == null ||
+                activeTerms.Id != legalDocumentId)
+            {
+                throw new BadRequestException(
+                    "The Terms and Conditions have been updated. Please review and accept the latest version."
+                );
+            }
+
+            // 4. Check duplicate email.
             var email = user.Email.Trim();
 
             var existingUser =
@@ -84,7 +120,9 @@ namespace RestaurantBookingAPI.Services
                 );
             }
 
+            // 5. Prepare the user entity.
             user.Email = email;
+
             user.PasswordHash =
                 _passwordService.HashPassword(user, password);
 
@@ -92,40 +130,67 @@ namespace RestaurantBookingAPI.Services
             user.IsActive = true;
             user.CreatedAt = DateTime.UtcNow;
 
-            // Step 1: Save user in database
-            var registeredUser =
-                await _userRepository.AddAsync(user);
+            User registeredUser;
 
-            // Step 2: Create and link the Customer record
-            var customer = new Customer
+            // 6. Start a transaction covering all registration records.
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync();
+
+            try
             {
-                UserId = registeredUser.Id,
-                Name = registeredUser.Name,
-                Email = registeredUser.Email,
-                Phone = string.Empty
-            };
+                // Create User through the existing stored procedure.
+                registeredUser =
+                    await _userRepository.AddAsync(user);
 
-            await _customerRepository.AddAsync(customer);
+                // Create the linked Customer record.
+                var customer = new Customer
+                {
+                    UserId = registeredUser.Id,
+                    Name = registeredUser.Name,
+                    Email = registeredUser.Email,
+                    Phone = string.Empty
+                };
 
-            // Step 3: Prepare confirmation email
+                await _customerRepository.AddAsync(customer);
+
+                // Save the user's acceptance of the active Terms version.
+                var acceptance = new UserLegalAcceptance
+                {
+                    UserId = registeredUser.Id,
+                    LegalDocumentId = activeTerms.Id,
+                    AcceptedAt = DateTime.UtcNow
+                };
+
+                await _userLegalAcceptanceRepository.AddAsync(acceptance);
+
+                // Commit all three database operations together.
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                // Roll back User, Customer and Terms Acceptance together.
+                await transaction.RollbackAsync();
+                throw;
+            }
+
+            // 7. Send welcome email only after successful database commit.
             var subject =
                 "Welcome to Restaurant Booking - Registration Successful";
 
             var body = $"""
-    Hello {registeredUser.Name},
+        Hello {registeredUser.Name},
 
-    Thank you for registering with Restaurant Booking!
+        Thank you for registering with Restaurant Booking!
 
-    Your account has been created successfully.
+        Your account has been created successfully.
 
-    You can now log in and start exploring restaurants
-    and making bookings.
+        You can now log in and start exploring restaurants
+        and making bookings.
 
-    Regards,
-    Restaurant Booking Team
-    """;
+        Regards,
+        Restaurant Booking Team
+        """;
 
-            // Step 3: Send email without failing registration
             try
             {
                 await _emailService.SendEmailAsync(
@@ -136,10 +201,10 @@ namespace RestaurantBookingAPI.Services
             }
             catch (Exception ex)
             {
-                // Email failure should not undo registration
-                // Log this error in production
-                Console.Error.WriteLine(
-                    $"Registration email failed for user ID {registeredUser.Id}: {ex.Message}"
+                _logger.LogError(
+                    ex,
+                    "Registration email failed for user ID {UserId}",
+                    registeredUser.Id
                 );
             }
 

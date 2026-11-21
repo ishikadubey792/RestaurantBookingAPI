@@ -37,6 +37,11 @@ namespace RestaurantBookingAPI.Data
 
         public DbSet<RestaurantCuisine> RestaurantCuisines { get; set; }
 
+
+        public DbSet<LegalDocument> LegalDocuments { get; set; }
+
+        public DbSet<UserLegalAcceptance> UserLegalAcceptances { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Restaurant>()
@@ -171,6 +176,41 @@ namespace RestaurantBookingAPI.Data
 
             modelBuilder.Entity<RestaurantCuisine>()
                 .HasIndex(rc => new { rc.RestaurantId, rc.CuisineId })
+                .IsUnique();
+
+
+
+            // Legal document configuration.
+            modelBuilder.Entity<LegalDocument>()
+                .ToTable("LegalDocuments");
+
+            modelBuilder.Entity<LegalDocument>()
+                .HasIndex(d => new { d.DocumentType, d.Version })
+                .IsUnique();
+
+            modelBuilder.Entity<LegalDocument>()
+                .HasIndex(d => d.DocumentType)
+                .IsUnique()
+                .HasFilter("[IsActive] = 1");
+
+            // User legal acceptance configuration.
+            modelBuilder.Entity<UserLegalAcceptance>()
+                .ToTable("UserLegalAcceptances");
+
+            modelBuilder.Entity<UserLegalAcceptance>()
+                .HasOne(a => a.User)
+                .WithMany()
+                .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserLegalAcceptance>()
+                .HasOne(a => a.LegalDocument)
+                .WithMany(d => d.UserAcceptances)
+                .HasForeignKey(a => a.LegalDocumentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserLegalAcceptance>()
+                .HasIndex(a => new { a.UserId, a.LegalDocumentId })
                 .IsUnique();
         }
 

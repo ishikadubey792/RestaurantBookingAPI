@@ -36,7 +36,9 @@ namespace RestaurantBookingAPI.Controllers
 
             var registeredUser = await _userService.RegisterAsync(
                 user,
-                request.Password
+                request.Password,
+                request.LegalDocumentId,
+                request.AcceptedTerms
             );
 
             var responseData = new
