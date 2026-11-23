@@ -10,7 +10,7 @@ namespace RestaurantBookingAPI.IServices
 
         Task<Restaurant> CreateAsync(Restaurant restaurant);
 
-        Task<bool> UpdateAsync(int id, Restaurant restaurant);
+        Task<bool> UpdateAsync(int id, Restaurant restaurant, bool? updateCoordinates = null);
 
         Task<bool> DeleteAsync(int id);
 
@@ -30,7 +30,8 @@ namespace RestaurantBookingAPI.IServices
         Task<bool> UpdateMyRestaurantAsync(
             int restaurantId,
             int ownerUserId,
-            Restaurant restaurant
+            Restaurant restaurant,
+            bool? updateCoordinates = null
         );
 
         Task<bool> DeleteMyRestaurantAsync(

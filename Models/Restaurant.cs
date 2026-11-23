@@ -1,4 +1,6 @@
-﻿namespace RestaurantBookingAPI.Models
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace RestaurantBookingAPI.Models
 {
     public class Restaurant
     {
@@ -21,6 +23,15 @@
         public string? CoverImagePath { get; set; }
 
         public bool IsActive { get; set; } = true;
+
+        // Restaurant geographical coordinates
+        public decimal? Latitude { get; set; }
+
+        public decimal? Longitude { get; set; }
+
+        // Explicit flag to indicate intentional coordinate update or clearing
+        [NotMapped]
+        public bool? UpdateCoordinates { get; set; }
 
         // Navigation properties
         public User? Owner { get; set; }

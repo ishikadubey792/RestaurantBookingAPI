@@ -1,4 +1,4 @@
-﻿using RestaurantBookingAPI.Models;
+using RestaurantBookingAPI.Models;
 
 namespace RestaurantBookingAPI.IRepository
 {
@@ -10,7 +10,7 @@ namespace RestaurantBookingAPI.IRepository
 
         Task<Restaurant> AddAsync(Restaurant restaurant);
 
-        Task<bool> UpdateAsync(Restaurant restaurant);
+        Task<bool> UpdateAsync(Restaurant restaurant, bool updateCoordinates = false);
 
         // Marks a restaurant as inactive without deleting its related records.
         Task<bool> SoftDeleteAsync(int id, int ownerUserId);

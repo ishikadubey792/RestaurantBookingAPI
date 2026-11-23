@@ -45,8 +45,9 @@ namespace RestaurantBookingAPI.Services
         }
 
         public async Task<bool> UpdateAsync(
-    int id,
-    Restaurant restaurant)
+            int id,
+            Restaurant restaurant,
+            bool? updateCoordinates = null)
         {
             var errors = _validator.Validate(restaurant);
 
@@ -64,6 +65,10 @@ namespace RestaurantBookingAPI.Services
                 return false;
             }
 
+            bool shouldUpdateCoordinates = updateCoordinates
+                ?? restaurant.UpdateCoordinates
+                ?? (restaurant.Latitude.HasValue && restaurant.Longitude.HasValue);
+
             existingRestaurant.Name = restaurant.Name;
             existingRestaurant.Address = restaurant.Address;
             existingRestaurant.Phone = restaurant.Phone;
@@ -75,7 +80,13 @@ namespace RestaurantBookingAPI.Services
             existingRestaurant.Description = restaurant.Description;
             existingRestaurant.CoverImagePath = restaurant.CoverImagePath;
 
-            return await _repository.UpdateAsync(existingRestaurant);
+            if (shouldUpdateCoordinates)
+            {
+                existingRestaurant.Latitude = restaurant.Latitude;
+                existingRestaurant.Longitude = restaurant.Longitude;
+            }
+
+            return await _repository.UpdateAsync(existingRestaurant, shouldUpdateCoordinates);
         }
 
         // Soft-deletes a restaurant for an authorized admin.
@@ -129,7 +140,8 @@ namespace RestaurantBookingAPI.Services
         public async Task<bool> UpdateMyRestaurantAsync(
             int restaurantId,
             int ownerUserId,
-            Restaurant restaurant)
+            Restaurant restaurant,
+            bool? updateCoordinates = null)
         {
             var existingRestaurant =
                 await _repository.GetByIdAndOwnerIdAsync(
@@ -151,6 +163,10 @@ namespace RestaurantBookingAPI.Services
                 );
             }
 
+            bool shouldUpdateCoordinates = updateCoordinates
+                ?? restaurant.UpdateCoordinates
+                ?? (restaurant.Latitude.HasValue && restaurant.Longitude.HasValue);
+
             // Update only owner-editable properties
             existingRestaurant.Name = restaurant.Name;
             existingRestaurant.Address = restaurant.Address;
@@ -166,8 +182,14 @@ namespace RestaurantBookingAPI.Services
 
             existingRestaurant.IsActive = restaurant.IsActive;
 
+            if (shouldUpdateCoordinates)
+            {
+                existingRestaurant.Latitude = restaurant.Latitude;
+                existingRestaurant.Longitude = restaurant.Longitude;
+            }
+
             // Strictly preserve OwnerUserId and Id (prevent reassignment)
-            return await _repository.UpdateAsync(existingRestaurant);
+            return await _repository.UpdateAsync(existingRestaurant, shouldUpdateCoordinates);
         }
 
 

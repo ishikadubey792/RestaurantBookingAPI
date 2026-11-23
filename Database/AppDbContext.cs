@@ -47,6 +47,14 @@ namespace RestaurantBookingAPI.Data
             modelBuilder.Entity<Restaurant>()
                 .ToTable("Restaurant");
 
+            modelBuilder.Entity<Restaurant>()
+                    .Property(r => r.Latitude)
+                    .HasPrecision(9, 6);
+
+            modelBuilder.Entity<Restaurant>()
+                .Property(r => r.Longitude)
+                .HasPrecision(9, 6);
+
             modelBuilder.Entity<RestaurantTable>()
                 .ToTable("RestaurantTable");
 
@@ -212,6 +220,9 @@ namespace RestaurantBookingAPI.Data
             modelBuilder.Entity<UserLegalAcceptance>()
                 .HasIndex(a => new { a.UserId, a.LegalDocumentId })
                 .IsUnique();
+
+
+            
         }
 
 

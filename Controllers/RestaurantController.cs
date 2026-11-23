@@ -120,7 +120,8 @@ namespace RestaurantBookingAPI.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(
             int id,
-            [FromBody] Restaurant restaurant)
+            [FromBody] Restaurant restaurant,
+            [FromQuery] bool? updateCoordinates = null)
         {
             if (User.IsInRole("RestaurantOwner"))
             {
@@ -131,7 +132,7 @@ namespace RestaurantBookingAPI.Controllers
                 }
 
                 var ownerUpdated =
-                    await _service.UpdateMyRestaurantAsync(id, ownerId.Value, restaurant);
+                    await _service.UpdateMyRestaurantAsync(id, ownerId.Value, restaurant, updateCoordinates);
 
                 if (!ownerUpdated)
                 {
@@ -149,7 +150,7 @@ namespace RestaurantBookingAPI.Controllers
             }
 
             var updated =
-                await _service.UpdateAsync(id, restaurant);
+                await _service.UpdateAsync(id, restaurant, updateCoordinates);
 
             if (!updated)
             {
@@ -274,7 +275,8 @@ namespace RestaurantBookingAPI.Controllers
         [HttpPut("my-restaurants/{id}")]
         public async Task<IActionResult> UpdateMyRestaurant(
             int id,
-            [FromBody] Restaurant restaurant)
+            [FromBody] Restaurant restaurant,
+            [FromQuery] bool? updateCoordinates = null)
         {
             var ownerId = GetCurrentOwnerId();
             if (ownerId == null)
@@ -286,7 +288,8 @@ namespace RestaurantBookingAPI.Controllers
                 await _service.UpdateMyRestaurantAsync(
                     id,
                     ownerId.Value,
-                    restaurant
+                    restaurant,
+                    updateCoordinates
                 );
 
             if (!updated)

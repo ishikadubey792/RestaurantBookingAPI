@@ -48,6 +48,27 @@ namespace RestaurantBookingAPI.Validation
                 }
             }
 
+
+
+            // Validate restaurant coordinates
+            if (restaurant.Latitude.HasValue != restaurant.Longitude.HasValue)
+            {
+                errors.Add("Latitude and longitude must be provided together.");
+            }
+
+            if (restaurant.Latitude.HasValue &&
+                (restaurant.Latitude.Value < -90 || restaurant.Latitude.Value > 90))
+            {
+                errors.Add("Latitude must be between -90 and 90.");
+            }
+
+            if (restaurant.Longitude.HasValue &&
+                (restaurant.Longitude.Value < -180 || restaurant.Longitude.Value > 180))
+            {
+                errors.Add("Longitude must be between -180 and 180.");
+            }
+
+
             return errors;
         }
     }
